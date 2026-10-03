@@ -1,0 +1,20 @@
+{
+  "checked_by": null,
+  "checked_at_utc": null,
+  "cloud": null,
+  "workspace_url": null,
+  "catalog": null,
+  "schema": "hf_hackathon",
+  "serverless_notebooks": "unverified",
+  "delta_write": "unverified",
+  "mlflow": "unverified",
+  "external_sql_credentials": "unverified",
+  "sql_warehouse": "unverified",
+  "serving": "unverified_optional",
+  "apps": "unverified_optional",
+  "foundation_models": "unverified_optional",
+  "jobs": "unverified_optional",
+  "sync_mode": "restricted_export",
+  "remaining_quota": null,
+  "evidence_links": []
+}

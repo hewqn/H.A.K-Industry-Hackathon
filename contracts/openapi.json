@@ -1,0 +1,1708 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Heart-failure follow-up scaffold",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cohorts/current": {
+      "get": {
+        "summary": "Cohort",
+        "operationId": "cohort_api_v1_cohorts_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CohortRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "summary": "Models",
+        "operationId": "models_api_v1_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ranking-snapshots": {
+      "post": {
+        "summary": "Create Snapshot",
+        "operationId": "create_snapshot_api_v1_ranking_snapshots_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ranking-snapshots/{snapshot_id}": {
+      "get": {
+        "summary": "Snapshot",
+        "operationId": "snapshot_api_v1_ranking_snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/patients/{patient_id}": {
+      "get": {
+        "summary": "Patient",
+        "operationId": "patient_api_v1_patients__patient_id__get",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Patient Id"
+            }
+          },
+          {
+            "name": "snapshot_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/patients/{patient_id}/summary": {
+      "post": {
+        "summary": "Summary",
+        "operationId": "summary_api_v1_patients__patient_id__summary_post",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Patient Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummaryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comparisons/heart-weight": {
+      "post": {
+        "summary": "Comparison",
+        "operationId": "comparison_api_v1_comparisons_heart_weight_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComparisonRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/patients/{patient_id}/workflow": {
+      "patch": {
+        "summary": "Workflow",
+        "operationId": "workflow_api_v1_patients__patient_id__workflow_patch",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Patient Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/overrides": {
+      "post": {
+        "summary": "Overrides",
+        "operationId": "overrides_api_v1_overrides_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/reset": {
+      "post": {
+        "summary": "Reset",
+        "operationId": "reset_api_v1_sessions_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit-events": {
+      "get": {
+        "summary": "Audit Events",
+        "operationId": "audit_events_api_v1_audit_events_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/queue.csv": {
+      "get": {
+        "summary": "Export",
+        "operationId": "export_api_v1_exports_queue_csv_get",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/session": {
+      "post": {
+        "summary": "Voice Session",
+        "operationId": "voice_session_api_v1_voice_session_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/tools/{tool_name}": {
+      "post": {
+        "summary": "Voice Tool",
+        "operationId": "voice_tool_api_v1_voice_tools__tool_name__post",
+        "parameters": [
+          {
+            "name": "tool_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tool Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CohortRead": {
+        "properties": {
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id"
+          },
+          "source_hash": {
+            "type": "string",
+            "title": "Source Hash"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "accepted_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Accepted Ids"
+          },
+          "accepted_count": {
+            "type": "integer",
+            "title": "Accepted Count"
+          },
+          "source_count": {
+            "type": "integer",
+            "title": "Source Count"
+          },
+          "excluded_count": {
+            "type": "integer",
+            "title": "Excluded Count"
+          },
+          "missing_rows": {
+            "type": "integer",
+            "title": "Missing Rows"
+          },
+          "missing_cells": {
+            "type": "integer",
+            "title": "Missing Cells"
+          },
+          "exclusions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Exclusions"
+          },
+          "warnings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "feature_allowlist": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Feature Allowlist"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "license": {
+            "type": "string",
+            "title": "License"
+          },
+          "eligible_count": {
+            "type": "integer",
+            "title": "Eligible Count"
+          },
+          "workflow_revision": {
+            "type": "integer",
+            "title": "Workflow Revision"
+          },
+          "current_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Snapshot Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "provenance": {
+            "type": "string",
+            "title": "Provenance"
+          },
+          "sync_mode": {
+            "type": "string",
+            "title": "Sync Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cohort_id",
+          "source_hash",
+          "schema_version",
+          "accepted_ids",
+          "accepted_count",
+          "source_count",
+          "excluded_count",
+          "missing_rows",
+          "missing_cells",
+          "exclusions",
+          "warnings",
+          "feature_allowlist",
+          "source",
+          "license",
+          "eligible_count",
+          "workflow_revision",
+          "current_snapshot_id",
+          "session_id",
+          "provenance",
+          "sync_mode"
+        ],
+        "title": "CohortRead"
+      },
+      "ComparisonRequest": {
+        "properties": {
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id",
+            "default": "uci-hf-299-v1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ComparisonRequest"
+      },
+      "ContextRequest": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Snapshot Id"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^HF-\\d{4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "snapshot_id"
+        ],
+        "title": "ContextRequest"
+      },
+      "Evidence": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "predicate": {
+            "type": "string",
+            "title": "Predicate"
+          },
+          "scale": {
+            "type": "string",
+            "title": "Scale"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "contribution": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "field",
+          "value",
+          "predicate",
+          "scale"
+        ],
+        "title": "Evidence"
+      },
+      "Facts": {
+        "properties": {
+          "age": {
+            "type": "number",
+            "title": "Age"
+          },
+          "anaemia": {
+            "type": "boolean",
+            "title": "Anaemia"
+          },
+          "creatinine_phosphokinase": {
+            "type": "number",
+            "title": "Creatinine Phosphokinase"
+          },
+          "diabetes": {
+            "type": "boolean",
+            "title": "Diabetes"
+          },
+          "ejection_fraction": {
+            "type": "number",
+            "title": "Ejection Fraction"
+          },
+          "high_blood_pressure": {
+            "type": "boolean",
+            "title": "High Blood Pressure"
+          },
+          "platelets": {
+            "type": "number",
+            "title": "Platelets"
+          },
+          "serum_creatinine": {
+            "type": "number",
+            "title": "Serum Creatinine"
+          },
+          "serum_sodium": {
+            "type": "number",
+            "title": "Serum Sodium"
+          },
+          "sex": {
+            "type": "boolean",
+            "title": "Sex"
+          },
+          "smoking": {
+            "type": "boolean",
+            "title": "Smoking"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "age",
+          "anaemia",
+          "creatinine_phosphokinase",
+          "diabetes",
+          "ejection_fraction",
+          "high_blood_pressure",
+          "platelets",
+          "serum_creatinine",
+          "serum_sodium",
+          "sex",
+          "smoking"
+        ],
+        "title": "Facts"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MutationResult": {
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/Snapshot"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "sync_status": {
+            "type": "string",
+            "title": "Sync Status"
+          },
+          "replayed": {
+            "type": "boolean",
+            "title": "Replayed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot",
+          "revision",
+          "sync_status",
+          "replayed"
+        ],
+        "title": "MutationResult"
+      },
+      "OrganIndicator": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "flagged",
+              "not_flagged",
+              "unknown"
+            ],
+            "title": "State"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "%",
+              "mg/dL"
+            ],
+            "title": "Unit"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "value",
+          "unit",
+          "label",
+          "evidence_ids"
+        ],
+        "title": "OrganIndicator"
+      },
+      "Organs": {
+        "properties": {
+          "heart": {
+            "$ref": "#/components/schemas/OrganIndicator"
+          },
+          "kidney_left": {
+            "$ref": "#/components/schemas/OrganIndicator"
+          },
+          "kidney_right": {
+            "$ref": "#/components/schemas/OrganIndicator"
+          }
+        },
+        "type": "object",
+        "required": [
+          "heart",
+          "kidney_left",
+          "kidney_right"
+        ],
+        "title": "Organs"
+      },
+      "Override": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "pin",
+              "defer"
+            ],
+            "title": "Action"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "sequence": {
+            "type": "integer",
+            "title": "Sequence"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "reason",
+          "sequence",
+          "actor"
+        ],
+        "title": "Override"
+      },
+      "OverrideRequest": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Command Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "patient_id": {
+            "type": "string",
+            "pattern": "^HF-\\d{4}$",
+            "title": "Patient Id"
+          },
+          "session_id": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Session Id"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "pin",
+              "defer",
+              "reset"
+            ],
+            "title": "Action"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "expected_revision",
+          "patient_id",
+          "session_id",
+          "action",
+          "reason"
+        ],
+        "title": "OverrideRequest"
+      },
+      "PatientRead": {
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "title": "Patient Id"
+          },
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id"
+          },
+          "ranking_snapshot_id": {
+            "type": "string",
+            "title": "Ranking Snapshot Id"
+          },
+          "method_id": {
+            "type": "string",
+            "title": "Method Id"
+          },
+          "model_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Rank"
+          },
+          "call_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Call Rank"
+          },
+          "priority_band": {
+            "type": "string",
+            "title": "Priority Band"
+          },
+          "score": {
+            "$ref": "#/components/schemas/Score"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/Facts"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "organs": {
+            "$ref": "#/components/schemas/Organs"
+          },
+          "indicator_policy_version": {
+            "type": "string",
+            "title": "Indicator Policy Version"
+          },
+          "explanation_method": {
+            "type": "string",
+            "title": "Explanation Method"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/Workflow"
+          },
+          "override": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Override"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provenance": {
+            "type": "string",
+            "title": "Provenance"
+          },
+          "summary_status": {
+            "type": "string",
+            "title": "Summary Status"
+          },
+          "fact_units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Fact Units"
+          },
+          "evidence_digest": {
+            "type": "string",
+            "title": "Evidence Digest"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "patient_id",
+          "cohort_id",
+          "ranking_snapshot_id",
+          "method_id",
+          "model_rank",
+          "call_rank",
+          "priority_band",
+          "score",
+          "facts",
+          "evidence",
+          "organs",
+          "indicator_policy_version",
+          "explanation_method",
+          "workflow",
+          "override",
+          "provenance",
+          "summary_status",
+          "fact_units",
+          "evidence_digest",
+          "summary"
+        ],
+        "title": "PatientRead"
+      },
+      "QueueRow": {
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "title": "Patient Id"
+          },
+          "model_rank": {
+            "type": "integer",
+            "title": "Model Rank"
+          },
+          "call_rank": {
+            "type": "integer",
+            "title": "Call Rank"
+          },
+          "in_queue": {
+            "type": "boolean",
+            "title": "In Queue"
+          },
+          "priority_band": {
+            "type": "string",
+            "title": "Priority Band"
+          },
+          "score": {
+            "$ref": "#/components/schemas/Score"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/Facts"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "workflow_state": {
+            "type": "string",
+            "title": "Workflow State"
+          },
+          "override": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Override"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "patient_id",
+          "model_rank",
+          "call_rank",
+          "in_queue",
+          "priority_band",
+          "score",
+          "facts",
+          "reason",
+          "workflow_state",
+          "override"
+        ],
+        "title": "QueueRow"
+      },
+      "ResetRequest": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Command Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "expected_revision",
+          "reason"
+        ],
+        "title": "ResetRequest"
+      },
+      "Score": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "points",
+              "model_output",
+              "calibrated_probability"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "explanation_method": {
+            "type": "string",
+            "title": "Explanation Method"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "prediction_provenance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prediction Provenance"
+          },
+          "intercept": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intercept"
+          },
+          "calibration_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "kind",
+          "label",
+          "evidence",
+          "explanation_method",
+          "version"
+        ],
+        "title": "Score"
+      },
+      "Snapshot": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "title": "Snapshot Id"
+          },
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id"
+          },
+          "source_hash": {
+            "type": "string",
+            "title": "Source Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "workflow_revision": {
+            "type": "integer",
+            "title": "Workflow Revision"
+          },
+          "method_id": {
+            "type": "string",
+            "title": "Method Id"
+          },
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "eligible_count": {
+            "type": "integer",
+            "title": "Eligible Count"
+          },
+          "selected_count": {
+            "type": "integer",
+            "title": "Selected Count"
+          },
+          "tie_policy": {
+            "type": "string",
+            "title": "Tie Policy"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/QueueRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "queue": {
+            "items": {
+              "$ref": "#/components/schemas/QueueRow"
+            },
+            "type": "array",
+            "title": "Queue"
+          },
+          "workflow": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Workflow"
+          },
+          "overrides": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Override"
+            },
+            "type": "object",
+            "title": "Overrides"
+          },
+          "provenance": {
+            "type": "string",
+            "title": "Provenance"
+          },
+          "sync_mode": {
+            "type": "string",
+            "title": "Sync Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "cohort_id",
+          "source_hash",
+          "created_at",
+          "session_id",
+          "workflow_revision",
+          "method_id",
+          "capacity",
+          "mode",
+          "eligible_count",
+          "selected_count",
+          "tie_policy",
+          "rows",
+          "queue",
+          "workflow",
+          "overrides",
+          "provenance",
+          "sync_mode"
+        ],
+        "title": "Snapshot"
+      },
+      "SnapshotRequest": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Command Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id",
+            "default": "uci-hf-299-v1"
+          },
+          "method_id": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Method Id",
+            "default": "points_v1"
+          },
+          "capacity": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Capacity",
+            "default": 25
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "operational",
+              "benchmark"
+            ],
+            "title": "Mode",
+            "default": "operational"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "expected_revision"
+        ],
+        "title": "SnapshotRequest"
+      },
+      "Summary": {
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "title": "Patient Id"
+          },
+          "evidence_digest": {
+            "type": "string",
+            "title": "Evidence Digest"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Ids"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "prompt_version": {
+            "type": "string",
+            "title": "Prompt Version"
+          },
+          "generator_version": {
+            "type": "string",
+            "title": "Generator Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "patient_id",
+          "evidence_digest",
+          "text",
+          "evidence_ids",
+          "limitations",
+          "status",
+          "prompt_version",
+          "generator_version"
+        ],
+        "title": "Summary"
+      },
+      "SummaryRequest": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Snapshot Id"
+          },
+          "evidence_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evidence Digest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "evidence_digest"
+        ],
+        "title": "SummaryRequest"
+      },
+      "ToolRequest": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Snapshot Id"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^HF-\\d{4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 5
+          },
+          "report_id": {
+            "type": "string",
+            "title": "Report Id",
+            "default": "case-benchmark-v1"
+          },
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id",
+            "default": "uci-hf-299-v1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "snapshot_id"
+        ],
+        "title": "ToolRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "Workflow": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "reviewed",
+              "contacted",
+              "needs_clinician_review"
+            ],
+            "title": "State"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "revision"
+        ],
+        "title": "Workflow"
+      },
+      "WorkflowRequest": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Command Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "reviewed",
+              "contacted",
+              "needs_clinician_review"
+            ],
+            "title": "State"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "expected_revision",
+          "state"
+        ],
+        "title": "WorkflowRequest"
+      }
+    }
+  }
+}

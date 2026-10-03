@@ -1,0 +1,83 @@
+/* Calm, compact clinical workspace. Color is always paired with words and measurements. */
+:root { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #203a44; background: #f4f6f6; font-synthesis: none; line-height: 1.45; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, select, textarea, .button { font: inherit; }
+button, .button { padding: .55rem .8rem; border: 1px solid #c9d4d8; border-radius: 6px; background: #fff; color: #203a44; cursor: pointer; text-decoration: none; }
+button:hover, .button:hover { background: #e5edef; }
+button:disabled { opacity: .45; cursor: default; }
+button[aria-pressed=true], nav button[aria-current=page] { color: #fff; background: #294e5b; border-color: #294e5b; }
+:focus-visible { outline: 3px solid #b25454; outline-offset: 3px; }
+input, select, textarea { width: 100%; padding: .5rem; border: 1px solid #bdcbd0; border-radius: 5px; background: #fff; color: inherit; }
+textarea { min-height: 60px; resize: vertical; }
+label { display: block; font-size: .82rem; font-weight: 600; }
+h1 { font-size: 1.7rem; margin: .1rem 0 .3rem; letter-spacing: -.04em; }
+h2 { font-size: 1.05rem; margin: 0; }
+h3 { font-size: .95rem; margin: 1rem 0 .5rem; }
+h4 { margin: 0 0 .8rem; }
+p { margin: .45rem 0 .7rem; }
+small { display: block; font-size: .75rem; }
+.app-shell { max-width: 1600px; margin: auto; padding: 24px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 16px; }
+header p { font-size: .86rem; }
+.eyebrow { text-transform: uppercase; letter-spacing: .13em; font-size: .65rem; color: #687d85; }
+.mode-tag { background: #e5edef; padding: .65rem 1rem; border-radius: 8px; font-size: .8rem; text-transform: uppercase; max-width: 280px; }
+.mode-tag small { text-transform: none; }
+.toolbar { display: flex; align-items: center; gap: 20px; padding: 15px 18px; border: 1px solid #d6dfe2; border-radius: 9px; background: white; }
+.toolbar > div, .toolbar > label { flex: 1; }
+.toolbar label:nth-child(3) { max-width: 110px; }
+.snapshot-time { font-size: .75rem; }
+nav { display: flex; gap: 6px; padding: 16px 0; }
+nav button { border: 0; }
+.workspace { display: grid; grid-template-columns: minmax(235px, .85fr) minmax(270px, 1fr) minmax(320px, 1.15fr); gap: 16px; align-items: start; }
+.patient-list, .anatomy, .patient-detail, .voice-panel, .comparison-page, .history-page { border: 1px solid #d6dfe2; border-radius: 9px; padding: 15px; background: #fff; }
+.section-title { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tag { display: inline-block; padding: 3px 7px; font-size: .63rem; background: #eaf0f2; color: #3e5b67; border-radius: 4px; }
+.muted { font-size: .75rem; color: #576c75; }
+.queue-scroll { max-height: 640px; overflow-y: auto; margin: 0 -8px; }
+.patient-row { width: 100%; display: flex; text-align: left; gap: 10px; padding: 12px 8px; border: 0; border-radius: 0; border-bottom: 1px solid #edf1f2; }
+.patient-row.selected { background: #e8f0f3; border-left: 3px solid #294e5b; }
+.patient-row strong { font-size: .83rem; }
+.patient-row small { font-size: .7rem; margin: 3px 0; }
+.rank { min-width: 25px; color: #657e88; font-size: .75rem; }
+.canvas-host { height: 390px; width: 100%; overflow: hidden; border-radius: 7px; background: #edf2f3; }
+.canvas-host canvas { display: block; }
+.awaiting-asset { display: grid; place-items: center; padding: 30px; text-align: center; color: #607b86; }
+.organ-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 10px 0; }
+.organ-buttons button { font-size: .7rem; padding: 7px 3px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+.text-button { font-size: .75rem; border: 0; padding: 0; text-decoration: underline; }
+.patient-detail { font-size: .8rem; }
+.fact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fact-grid article { background: #f0f4f5; padding: 10px; border-radius: 6px; }
+.fact-grid strong { font-size: 1.25rem; display: block; }
+.fact-grid p { font-size: .66rem; }
+.focused-organ { border-left: 3px solid #b25454; padding: 7px; background: #f8efed; }
+.evidence-list { padding-left: 18px; font-size: .75rem; }
+.evidence-list li { margin-bottom: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0; }
+.actions button { font-size: .75rem; }
+.actions input { flex: 1; min-width: 220px; }
+details { margin: 12px 0; font-size: .8rem; }
+summary { cursor: pointer; font-weight: 600; }
+dl > div { display: flex; justify-content: space-between; border-bottom: 1px solid #edf1f2; }
+dd { margin-left: 10px; }
+.voice-region { grid-column: 1 / -1; }
+.transcript { max-height: 180px; overflow-y: auto; }
+.error-banner { background: #f8e4e0; color: #78392d; padding: 12px; border-radius: 7px; }
+.feedback { font-size: .75rem; }
+.loading { padding: 36px; background: white; border-radius: 9px; }
+table { border-collapse: collapse; width: 100%; font-size: .8rem; margin: 12px 0; }
+th, td { text-align: left; padding: 10px; border-bottom: 1px solid #dbe3e6; }
+th { background: #edf2f3; }
+.table-scroll { overflow-x: auto; }
+.metric-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 16px 0; }
+.metric-cards article { padding: 20px; border: 1px solid #d4dfe3; border-radius: 8px; }
+.metric-cards strong { font-size: 2rem; }
+.metric-cards p { font-size: .8rem; }
+.decision { background: #eef3f4; border-left: 4px solid #b25454; padding: 15px; margin: 16px 0; }
+.hash { overflow-wrap: anywhere; font-size: .75rem; }
+footer { margin: 20px 0 0; font-size: .7rem; color: #526a74; }
+@media (max-width: 1050px) { .workspace { grid-template-columns: minmax(220px, .75fr) 1fr; } .patient-detail { grid-column: 1 / -1; } .toolbar { flex-wrap: wrap; } .toolbar > div, .toolbar > label { min-width: 130px; } }
+@media (max-width: 650px) { .app-shell { padding: 12px; } header { display: block; } .workspace, .metric-cards { grid-template-columns: 1fr; } .canvas-host { height: 320px; } .queue-scroll { max-height: 360px; } nav { flex-wrap: wrap; } .patient-detail { grid-column: auto; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }

@@ -1,0 +1,186 @@
+{
+  "patient_id": "HF-0001",
+  "cohort_id": "uci-hf-299-v1",
+  "ranking_snapshot_id": "b773c4d5-7881-431e-a8fd-18b5912f08f7",
+  "method_id": "points_v1",
+  "model_rank": 14,
+  "call_rank": 14,
+  "priority_band": "higher",
+  "score": {
+    "value": 6,
+    "kind": "points",
+    "label": "points",
+    "evidence": [
+      {
+        "id": "ef_flag",
+        "field": "ejection_fraction",
+        "value": 20.0,
+        "unit": "%",
+        "predicate": "EF < 35%",
+        "points": 2,
+        "scale": "additive_points"
+      },
+      {
+        "id": "creatinine_flag",
+        "field": "serum_creatinine",
+        "value": 1.9,
+        "unit": "mg/dL",
+        "predicate": "creatinine > 1.5 mg/dL",
+        "points": 2,
+        "scale": "additive_points"
+      },
+      {
+        "id": "bp_flag",
+        "field": "high_blood_pressure",
+        "value": true,
+        "unit": null,
+        "predicate": "recorded high blood pressure",
+        "points": 1,
+        "scale": "additive_points"
+      },
+      {
+        "id": "age_flag",
+        "field": "age",
+        "value": 75.0,
+        "unit": "years",
+        "predicate": "age \u2265 70",
+        "points": 1,
+        "scale": "additive_points"
+      }
+    ],
+    "explanation_method": "additive_points",
+    "version": "points-policy-v1"
+  },
+  "facts": {
+    "age": 75.0,
+    "anaemia": false,
+    "creatinine_phosphokinase": 582.0,
+    "diabetes": false,
+    "ejection_fraction": 20.0,
+    "high_blood_pressure": true,
+    "platelets": 265000.0,
+    "serum_creatinine": 1.9,
+    "serum_sodium": 130.0,
+    "sex": true,
+    "smoking": false
+  },
+  "evidence": [
+    {
+      "id": "ef_measurement",
+      "field": "ejection_fraction",
+      "value": 20.0,
+      "unit": "%",
+      "predicate": "recorded EF",
+      "scale": "measurement"
+    },
+    {
+      "id": "creatinine_measurement",
+      "field": "serum_creatinine",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "predicate": "recorded creatinine",
+      "scale": "measurement"
+    },
+    {
+      "id": "ef_flag",
+      "field": "ejection_fraction",
+      "value": 20.0,
+      "unit": "%",
+      "predicate": "EF < 35%",
+      "points": 2,
+      "scale": "additive_points"
+    },
+    {
+      "id": "creatinine_flag",
+      "field": "serum_creatinine",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "predicate": "creatinine > 1.5 mg/dL",
+      "points": 2,
+      "scale": "additive_points"
+    },
+    {
+      "id": "bp_flag",
+      "field": "high_blood_pressure",
+      "value": true,
+      "unit": null,
+      "predicate": "recorded high blood pressure",
+      "points": 1,
+      "scale": "additive_points"
+    },
+    {
+      "id": "age_flag",
+      "field": "age",
+      "value": 75.0,
+      "unit": "years",
+      "predicate": "age \u2265 70",
+      "points": 1,
+      "scale": "additive_points"
+    }
+  ],
+  "organs": {
+    "heart": {
+      "state": "flagged",
+      "value": 20.0,
+      "unit": "%",
+      "label": "prototype threshold crossed",
+      "evidence_ids": [
+        "ef_measurement"
+      ]
+    },
+    "kidney_left": {
+      "state": "flagged",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "label": "prototype threshold crossed",
+      "evidence_ids": [
+        "creatinine_measurement"
+      ]
+    },
+    "kidney_right": {
+      "state": "flagged",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "label": "prototype threshold crossed",
+      "evidence_ids": [
+        "creatinine_measurement"
+      ]
+    }
+  },
+  "indicator_policy_version": "organ-indicators-v1",
+  "explanation_method": "additive_points",
+  "workflow": {
+    "state": "pending",
+    "revision": 0
+  },
+  "override": null,
+  "provenance": "local_csv_scaffold",
+  "summary_status": "template",
+  "fact_units": {
+    "age": "years",
+    "ejection_fraction": "%",
+    "serum_creatinine": "mg/dL",
+    "serum_sodium": "mEq/L",
+    "creatinine_phosphokinase": "mcg/L"
+  },
+  "evidence_digest": "a64714ea01199ed71da24b0b02bafaa7cacd52b2070d2e75d8e2d048d2c61dc0",
+  "summary": {
+    "patient_id": "HF-0001",
+    "evidence_digest": "a64714ea01199ed71da24b0b02bafaa7cacd52b2070d2e75d8e2d048d2c61dc0",
+    "text": "HF-0001 has recorded ejection fraction 20% and serum creatinine 1.9 mg/dL. Age is 75 years; recorded conditions include high blood pressure. The points_v1 method gives a score of 6 points. The displayed organ indicators use prototype measurement thresholds. This overview supports follow-up review and does not establish a new diagnosis or recommend treatment.",
+    "evidence_ids": [
+      "ef_measurement",
+      "creatinine_measurement",
+      "ef_flag",
+      "creatinine_flag",
+      "bp_flag",
+      "age_flag"
+    ],
+    "limitations": [
+      "Historical measurements; symptoms, medicines, and contacts unavailable."
+    ],
+    "status": "template",
+    "prompt_version": "factual-overview-v1",
+    "generator_version": "template-v1"
+  }
+}
