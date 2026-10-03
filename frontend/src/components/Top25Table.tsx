@@ -26,7 +26,7 @@ export default function Top25Table({
         <table className="queue-table">
           <thead>
             <tr>
-              <th>#</th>
+              <th>ID</th>
               <th>Patient</th>
               <th>EF</th>
               <th>Cr</th>
