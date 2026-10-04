@@ -1,0 +1,7 @@
+{
+  "asset_url": null,
+  "nodes": { "body": "body", "heart": "heart", "kidney_left": "kidney_left", "kidney_right": "kidney_right" },
+  "orientation": "Y-up, front +Z; normalized by adapter to 2 units high",
+  "license": null,
+  "attribution": null
+}

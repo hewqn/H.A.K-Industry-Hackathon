@@ -1,0 +1,697 @@
+{
+  "patient_id": "HF-0001",
+  "cohort_id": "uci-hf-299-v1",
+  "ranking_snapshot_id": "4cc30432-37c4-4b75-9ad8-dc7c9784680c",
+  "method_id": "patient_risk",
+  "model_rank": 20,
+  "call_rank": 20,
+  "priority_band": "higher",
+  "score": {
+    "value": 0.8715579049214044,
+    "kind": "model_output",
+    "label": "uncalibrated model score",
+    "evidence": [
+      {
+        "id": "patient_risk_age",
+        "field": "age",
+        "value": 75.0,
+        "unit": "years",
+        "predicate": "recorded age",
+        "scale": "log_odds",
+        "contribution": 0.5833948402142565
+      },
+      {
+        "id": "patient_risk_creatinine_phosphokinase",
+        "field": "creatinine_phosphokinase",
+        "value": 582.0,
+        "unit": "mcg/L",
+        "predicate": "recorded creatinine phosphokinase",
+        "scale": "log_odds",
+        "contribution": -0.007109712768584598
+      },
+      {
+        "id": "patient_risk_ejection_fraction",
+        "field": "ejection_fraction",
+        "value": 20.0,
+        "unit": "%",
+        "predicate": "recorded ejection fraction",
+        "scale": "log_odds",
+        "contribution": 1.1710609658503581
+      },
+      {
+        "id": "patient_risk_platelets",
+        "field": "platelets",
+        "value": 265000.0,
+        "unit": null,
+        "predicate": "recorded platelets",
+        "scale": "log_odds",
+        "contribution": -0.0017871198315798083
+      },
+      {
+        "id": "patient_risk_serum_creatinine",
+        "field": "serum_creatinine",
+        "value": 1.9,
+        "unit": "mg/dL",
+        "predicate": "recorded serum creatinine",
+        "scale": "log_odds",
+        "contribution": 0.5030891590062321
+      },
+      {
+        "id": "patient_risk_serum_sodium",
+        "field": "serum_sodium",
+        "value": 130.0,
+        "unit": "mEq/L",
+        "predicate": "recorded serum sodium",
+        "scale": "log_odds",
+        "contribution": 0.269714775768262
+      },
+      {
+        "id": "patient_risk_anaemia",
+        "field": "anaemia",
+        "value": false,
+        "unit": null,
+        "predicate": "recorded anaemia",
+        "scale": "log_odds",
+        "contribution": 0.0
+      },
+      {
+        "id": "patient_risk_diabetes",
+        "field": "diabetes",
+        "value": false,
+        "unit": null,
+        "predicate": "recorded diabetes",
+        "scale": "log_odds",
+        "contribution": 0.0
+      },
+      {
+        "id": "patient_risk_high_blood_pressure",
+        "field": "high_blood_pressure",
+        "value": true,
+        "unit": null,
+        "predicate": "recorded high blood pressure",
+        "scale": "log_odds",
+        "contribution": 0.6635940658332876
+      },
+      {
+        "id": "patient_risk_sex",
+        "field": "sex",
+        "value": true,
+        "unit": null,
+        "predicate": "recorded sex",
+        "scale": "log_odds",
+        "contribution": -0.23748546590371472
+      },
+      {
+        "id": "patient_risk_smoking",
+        "field": "smoking",
+        "value": false,
+        "unit": null,
+        "predicate": "recorded smoking",
+        "scale": "log_odds",
+        "contribution": 0.0
+      }
+    ],
+    "explanation_method": "linear_log_odds",
+    "version": "hf-697f9c3afb96c737aef4/patient_risk",
+    "prediction_provenance": "development_in_sample",
+    "intercept": -1.0296673834095718,
+    "calibration_status": "not_calibrated"
+  },
+  "facts": {
+    "age": 75.0,
+    "anaemia": false,
+    "creatinine_phosphokinase": 582.0,
+    "diabetes": false,
+    "ejection_fraction": 20.0,
+    "high_blood_pressure": true,
+    "platelets": 265000.0,
+    "serum_creatinine": 1.9,
+    "serum_sodium": 130.0,
+    "sex": true,
+    "smoking": false
+  },
+  "evidence": [
+    {
+      "id": "ef_measurement",
+      "field": "ejection_fraction",
+      "value": 20.0,
+      "unit": "%",
+      "predicate": "recorded EF",
+      "scale": "measurement"
+    },
+    {
+      "id": "creatinine_measurement",
+      "field": "serum_creatinine",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "predicate": "recorded creatinine",
+      "scale": "measurement"
+    },
+    {
+      "id": "patient_risk_age",
+      "field": "age",
+      "value": 75.0,
+      "unit": "years",
+      "predicate": "recorded age",
+      "scale": "log_odds",
+      "contribution": 0.5833948402142565
+    },
+    {
+      "id": "patient_risk_creatinine_phosphokinase",
+      "field": "creatinine_phosphokinase",
+      "value": 582.0,
+      "unit": "mcg/L",
+      "predicate": "recorded creatinine phosphokinase",
+      "scale": "log_odds",
+      "contribution": -0.007109712768584598
+    },
+    {
+      "id": "patient_risk_ejection_fraction",
+      "field": "ejection_fraction",
+      "value": 20.0,
+      "unit": "%",
+      "predicate": "recorded ejection fraction",
+      "scale": "log_odds",
+      "contribution": 1.1710609658503581
+    },
+    {
+      "id": "patient_risk_platelets",
+      "field": "platelets",
+      "value": 265000.0,
+      "unit": null,
+      "predicate": "recorded platelets",
+      "scale": "log_odds",
+      "contribution": -0.0017871198315798083
+    },
+    {
+      "id": "patient_risk_serum_creatinine",
+      "field": "serum_creatinine",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "predicate": "recorded serum creatinine",
+      "scale": "log_odds",
+      "contribution": 0.5030891590062321
+    },
+    {
+      "id": "patient_risk_serum_sodium",
+      "field": "serum_sodium",
+      "value": 130.0,
+      "unit": "mEq/L",
+      "predicate": "recorded serum sodium",
+      "scale": "log_odds",
+      "contribution": 0.269714775768262
+    },
+    {
+      "id": "patient_risk_anaemia",
+      "field": "anaemia",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded anaemia",
+      "scale": "log_odds",
+      "contribution": 0.0
+    },
+    {
+      "id": "patient_risk_diabetes",
+      "field": "diabetes",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded diabetes",
+      "scale": "log_odds",
+      "contribution": 0.0
+    },
+    {
+      "id": "patient_risk_high_blood_pressure",
+      "field": "high_blood_pressure",
+      "value": true,
+      "unit": null,
+      "predicate": "recorded high blood pressure",
+      "scale": "log_odds",
+      "contribution": 0.6635940658332876
+    },
+    {
+      "id": "patient_risk_sex",
+      "field": "sex",
+      "value": true,
+      "unit": null,
+      "predicate": "recorded sex",
+      "scale": "log_odds",
+      "contribution": -0.23748546590371472
+    },
+    {
+      "id": "patient_risk_smoking",
+      "field": "smoking",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded smoking",
+      "scale": "log_odds",
+      "contribution": 0.0
+    },
+    {
+      "id": "heart_risk_ejection_fraction",
+      "field": "ejection_fraction",
+      "value": 20.0,
+      "unit": "%",
+      "predicate": "recorded ejection fraction",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "heart_risk_age",
+      "field": "age",
+      "value": 75.0,
+      "unit": "years",
+      "predicate": "recorded age",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "heart_risk_high_blood_pressure",
+      "field": "high_blood_pressure",
+      "value": true,
+      "unit": null,
+      "predicate": "recorded high blood pressure",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "heart_risk_diabetes",
+      "field": "diabetes",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded diabetes",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "heart_risk_smoking",
+      "field": "smoking",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded smoking",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "heart_risk_anaemia",
+      "field": "anaemia",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded anaemia",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "kidney_risk_serum_creatinine",
+      "field": "serum_creatinine",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "predicate": "recorded serum creatinine",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "kidney_risk_age",
+      "field": "age",
+      "value": 75.0,
+      "unit": "years",
+      "predicate": "recorded age",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "kidney_risk_sex",
+      "field": "sex",
+      "value": true,
+      "unit": null,
+      "predicate": "recorded sex",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "kidney_risk_diabetes",
+      "field": "diabetes",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded diabetes",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "kidney_risk_high_blood_pressure",
+      "field": "high_blood_pressure",
+      "value": true,
+      "unit": null,
+      "predicate": "recorded high blood pressure",
+      "scale": "recorded_measurement",
+      "contribution": null
+    },
+    {
+      "id": "kidney_risk_smoking",
+      "field": "smoking",
+      "value": false,
+      "unit": null,
+      "predicate": "recorded smoking",
+      "scale": "recorded_measurement",
+      "contribution": null
+    }
+  ],
+  "organs": {
+    "heart": {
+      "state": "flagged",
+      "value": 20.0,
+      "unit": "%",
+      "label": "prototype threshold crossed",
+      "evidence_ids": [
+        "ef_measurement"
+      ]
+    },
+    "kidney_left": {
+      "state": "flagged",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "label": "prototype threshold crossed",
+      "evidence_ids": [
+        "creatinine_measurement"
+      ]
+    },
+    "kidney_right": {
+      "state": "flagged",
+      "value": 1.9,
+      "unit": "mg/dL",
+      "label": "prototype threshold crossed",
+      "evidence_ids": [
+        "creatinine_measurement"
+      ]
+    }
+  },
+  "indicator_policy_version": "organ-indicators-v1",
+  "explanation_method": "linear_log_odds",
+  "workflow": {
+    "state": "pending",
+    "revision": 0
+  },
+  "override": null,
+  "provenance": "local_csv_scaffold",
+  "summary_status": "template",
+  "fact_units": {
+    "age": "years",
+    "ejection_fraction": "%",
+    "serum_creatinine": "mg/dL",
+    "serum_sodium": "mEq/L",
+    "creatinine_phosphokinase": "mcg/L"
+  },
+  "model_risks": {
+    "bundle_id": "hf-697f9c3afb96c737aef4",
+    "heart_risk": {
+      "score": 0.8427640337543572,
+      "band": "higher",
+      "classification_positive": true,
+      "classification_threshold": 0.516623019553755,
+      "model_family": "random_forest",
+      "model_version": "hf-697f9c3afb96c737aef4/heart_risk",
+      "score_kind": "model_output",
+      "calibration_status": "not_calibrated",
+      "prediction_provenance": "development_in_sample",
+      "explanation_method": "recorded_features_no_local_attribution",
+      "evidence": [
+        {
+          "id": "heart_risk_ejection_fraction",
+          "field": "ejection_fraction",
+          "value": 20.0,
+          "unit": "%",
+          "predicate": "recorded ejection fraction",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "heart_risk_age",
+          "field": "age",
+          "value": 75.0,
+          "unit": "years",
+          "predicate": "recorded age",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "heart_risk_high_blood_pressure",
+          "field": "high_blood_pressure",
+          "value": true,
+          "unit": null,
+          "predicate": "recorded high blood pressure",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "heart_risk_diabetes",
+          "field": "diabetes",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded diabetes",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "heart_risk_smoking",
+          "field": "smoking",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded smoking",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "heart_risk_anaemia",
+          "field": "anaemia",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded anaemia",
+          "scale": "recorded_measurement",
+          "contribution": null
+        }
+      ],
+      "intercept": null
+    },
+    "kidney_risk": {
+      "score": 0.823696362073892,
+      "band": "higher",
+      "classification_positive": true,
+      "classification_threshold": 0.31776478679935855,
+      "model_family": "random_forest",
+      "model_version": "hf-697f9c3afb96c737aef4/kidney_risk",
+      "score_kind": "model_output",
+      "calibration_status": "not_calibrated",
+      "prediction_provenance": "development_in_sample",
+      "explanation_method": "recorded_features_no_local_attribution",
+      "evidence": [
+        {
+          "id": "kidney_risk_serum_creatinine",
+          "field": "serum_creatinine",
+          "value": 1.9,
+          "unit": "mg/dL",
+          "predicate": "recorded serum creatinine",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "kidney_risk_age",
+          "field": "age",
+          "value": 75.0,
+          "unit": "years",
+          "predicate": "recorded age",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "kidney_risk_sex",
+          "field": "sex",
+          "value": true,
+          "unit": null,
+          "predicate": "recorded sex",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "kidney_risk_diabetes",
+          "field": "diabetes",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded diabetes",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "kidney_risk_high_blood_pressure",
+          "field": "high_blood_pressure",
+          "value": true,
+          "unit": null,
+          "predicate": "recorded high blood pressure",
+          "scale": "recorded_measurement",
+          "contribution": null
+        },
+        {
+          "id": "kidney_risk_smoking",
+          "field": "smoking",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded smoking",
+          "scale": "recorded_measurement",
+          "contribution": null
+        }
+      ],
+      "intercept": null
+    },
+    "patient_risk": {
+      "score": 0.8715579049214044,
+      "band": "higher",
+      "classification_positive": true,
+      "classification_threshold": 0.4683341342643569,
+      "model_family": "logistic_regression",
+      "model_version": "hf-697f9c3afb96c737aef4/patient_risk",
+      "score_kind": "model_output",
+      "calibration_status": "not_calibrated",
+      "prediction_provenance": "development_in_sample",
+      "explanation_method": "linear_log_odds",
+      "evidence": [
+        {
+          "id": "patient_risk_age",
+          "field": "age",
+          "value": 75.0,
+          "unit": "years",
+          "predicate": "recorded age",
+          "scale": "log_odds",
+          "contribution": 0.5833948402142565
+        },
+        {
+          "id": "patient_risk_creatinine_phosphokinase",
+          "field": "creatinine_phosphokinase",
+          "value": 582.0,
+          "unit": "mcg/L",
+          "predicate": "recorded creatinine phosphokinase",
+          "scale": "log_odds",
+          "contribution": -0.007109712768584598
+        },
+        {
+          "id": "patient_risk_ejection_fraction",
+          "field": "ejection_fraction",
+          "value": 20.0,
+          "unit": "%",
+          "predicate": "recorded ejection fraction",
+          "scale": "log_odds",
+          "contribution": 1.1710609658503581
+        },
+        {
+          "id": "patient_risk_platelets",
+          "field": "platelets",
+          "value": 265000.0,
+          "unit": null,
+          "predicate": "recorded platelets",
+          "scale": "log_odds",
+          "contribution": -0.0017871198315798083
+        },
+        {
+          "id": "patient_risk_serum_creatinine",
+          "field": "serum_creatinine",
+          "value": 1.9,
+          "unit": "mg/dL",
+          "predicate": "recorded serum creatinine",
+          "scale": "log_odds",
+          "contribution": 0.5030891590062321
+        },
+        {
+          "id": "patient_risk_serum_sodium",
+          "field": "serum_sodium",
+          "value": 130.0,
+          "unit": "mEq/L",
+          "predicate": "recorded serum sodium",
+          "scale": "log_odds",
+          "contribution": 0.269714775768262
+        },
+        {
+          "id": "patient_risk_anaemia",
+          "field": "anaemia",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded anaemia",
+          "scale": "log_odds",
+          "contribution": 0.0
+        },
+        {
+          "id": "patient_risk_diabetes",
+          "field": "diabetes",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded diabetes",
+          "scale": "log_odds",
+          "contribution": 0.0
+        },
+        {
+          "id": "patient_risk_high_blood_pressure",
+          "field": "high_blood_pressure",
+          "value": true,
+          "unit": null,
+          "predicate": "recorded high blood pressure",
+          "scale": "log_odds",
+          "contribution": 0.6635940658332876
+        },
+        {
+          "id": "patient_risk_sex",
+          "field": "sex",
+          "value": true,
+          "unit": null,
+          "predicate": "recorded sex",
+          "scale": "log_odds",
+          "contribution": -0.23748546590371472
+        },
+        {
+          "id": "patient_risk_smoking",
+          "field": "smoking",
+          "value": false,
+          "unit": null,
+          "predicate": "recorded smoking",
+          "scale": "log_odds",
+          "contribution": 0.0
+        }
+      ],
+      "intercept": -1.0296673834095718
+    }
+  },
+  "evidence_digest": "794ee924e540a98d25d2027a3c7144cc11738b1becd31ed2dbdcd74a23665503",
+  "summary": {
+    "patient_id": "HF-0001",
+    "evidence_digest": "794ee924e540a98d25d2027a3c7144cc11738b1becd31ed2dbdcd74a23665503",
+    "text": "HF-0001 has recorded ejection fraction 20% and serum creatinine 1.9 mg/dL. Age is 75 years; recorded conditions include high blood pressure. The active model orders follow-up using an uncalibrated score; it does not provide a validated clinical risk percentage. The displayed organ indicators use prototype measurement thresholds. This overview supports follow-up review and does not establish a new diagnosis or recommend treatment.",
+    "evidence_ids": [
+      "ef_measurement",
+      "creatinine_measurement",
+      "patient_risk_age",
+      "patient_risk_creatinine_phosphokinase",
+      "patient_risk_ejection_fraction",
+      "patient_risk_platelets",
+      "patient_risk_serum_creatinine",
+      "patient_risk_serum_sodium",
+      "patient_risk_anaemia",
+      "patient_risk_diabetes",
+      "patient_risk_high_blood_pressure",
+      "patient_risk_sex",
+      "patient_risk_smoking",
+      "heart_risk_ejection_fraction",
+      "heart_risk_age",
+      "heart_risk_high_blood_pressure",
+      "heart_risk_diabetes",
+      "heart_risk_smoking",
+      "heart_risk_anaemia",
+      "kidney_risk_serum_creatinine",
+      "kidney_risk_age",
+      "kidney_risk_sex",
+      "kidney_risk_diabetes",
+      "kidney_risk_high_blood_pressure",
+      "kidney_risk_smoking"
+    ],
+    "limitations": [
+      "Historical measurements; symptoms, medicines, and contacts unavailable."
+    ],
+    "status": "template",
+    "prompt_version": "factual-overview-v1",
+    "generator_version": "template-v1"
+  }
+}
