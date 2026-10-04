@@ -1,0 +1,155 @@
+{
+  "schema_version": "frozen-risk-selection-v1",
+  "source_hash": "9c73cea7468ff5d517801ec050fe9993da5912fce4b56f296f8df3b38dd75912",
+  "feature_group_version": "organ-feature-groups-v2",
+  "selection_policy": "min_false_negatives",
+  "selection": "Parameters: development five-fold mean f1_positive. Family: fewest development OOF FN at development-F1-tuned thresholds, then most TN/TP, then CV AUC and simpler family. Test never selects parameters, family or threshold.",
+  "limitations": [
+    "No organ-specific outcome labels: heart/kidney models are feature-associated mortality proxies.",
+    "No fixed prediction horizon or calibrated clinical probability.",
+    "Relative bands use development OOF-score thirds, conditional on hyperparameter selection; not independent validation.",
+    "Full-cohort outputs mix development in-sample and held-out test scores.",
+    "Repeated inspection of the same test set makes later comparisons exploratory.",
+    "Classification thresholds maximize development OOF positive-class F1 conditional on hyperparameter selection; need fresh validation."
+  ],
+  "models": {
+    "heart_risk": {
+      "family": "random_forest",
+      "features": [
+        "ejection_fraction",
+        "age",
+        "high_blood_pressure",
+        "diabetes",
+        "smoking",
+        "anaemia"
+      ],
+      "params": {
+        "model__class_weight": "balanced",
+        "model__max_depth": 8,
+        "model__max_features": "sqrt",
+        "model__min_samples_leaf": 5,
+        "model__random_state": 42,
+        "model__n_estimators": 150,
+        "model__n_jobs": 1
+      },
+      "classification_threshold": 0.516623019553755,
+      "band_cutoffs": {
+        "lower_max": 0.31922457552064615,
+        "middle_max": 0.5059261351232341
+      },
+      "development_counts": {
+        "tn": 130,
+        "fp": 32,
+        "fn": 30,
+        "tp": 47
+      },
+      "selected_cv_result": {
+        "params": {
+          "model__class_weight": "balanced",
+          "model__max_depth": 8,
+          "model__max_features": "sqrt",
+          "model__min_samples_leaf": 5
+        },
+        "mean_test_capture_at_k": 0.20916666666666667,
+        "std_test_capture_at_k": 0.05338539126015655,
+        "mean_test_roc_auc": 0.7329486268939395,
+        "mean_test_average_precision": 0.6264240387347346,
+        "mean_test_f1_positive": 0.6011187912049981,
+        "mean_test_recall_positive": 0.6108333333333333,
+        "mean_test_f1_weighted": 0.7367789202004577
+      }
+    },
+    "kidney_risk": {
+      "family": "random_forest",
+      "features": [
+        "serum_creatinine",
+        "age",
+        "sex",
+        "diabetes",
+        "high_blood_pressure",
+        "smoking"
+      ],
+      "params": {
+        "model__class_weight": "balanced",
+        "model__max_depth": 4,
+        "model__max_features": "sqrt",
+        "model__min_samples_leaf": 1,
+        "model__random_state": 42,
+        "model__n_estimators": 150,
+        "model__n_jobs": 1
+      },
+      "classification_threshold": 0.31776478679935855,
+      "band_cutoffs": {
+        "lower_max": 0.3277733408410296,
+        "middle_max": 0.478298126824106
+      },
+      "development_counts": {
+        "tn": 63,
+        "fp": 99,
+        "fn": 9,
+        "tp": 68
+      },
+      "selected_cv_result": {
+        "params": {
+          "model__class_weight": "balanced",
+          "model__max_depth": 4,
+          "model__max_features": "sqrt",
+          "model__min_samples_leaf": 1
+        },
+        "mean_test_capture_at_k": 0.2458333333333333,
+        "std_test_capture_at_k": 0.05997684738482193,
+        "mean_test_roc_auc": 0.7030042613636364,
+        "mean_test_average_precision": 0.6055180208489037,
+        "mean_test_f1_positive": 0.5384452584452584,
+        "mean_test_recall_positive": 0.5199999999999999,
+        "mean_test_f1_weighted": 0.7111000536418963
+      }
+    },
+    "patient_risk": {
+      "family": "logistic_regression",
+      "features": [
+        "age",
+        "anaemia",
+        "creatinine_phosphokinase",
+        "diabetes",
+        "ejection_fraction",
+        "high_blood_pressure",
+        "platelets",
+        "serum_creatinine",
+        "serum_sodium",
+        "sex",
+        "smoking"
+      ],
+      "params": {
+        "model__C": 10.0,
+        "model__class_weight": "balanced",
+        "model__random_state": 42,
+        "model__max_iter": 2000
+      },
+      "classification_threshold": 0.4683341342643569,
+      "band_cutoffs": {
+        "lower_max": 0.2741200417939404,
+        "middle_max": 0.5600136759969825
+      },
+      "development_counts": {
+        "tn": 119,
+        "fp": 43,
+        "fn": 15,
+        "tp": 62
+      },
+      "selected_cv_result": {
+        "params": {
+          "model__C": 10.0,
+          "model__class_weight": "balanced"
+        },
+        "mean_test_capture_at_k": 0.22083333333333335,
+        "std_test_capture_at_k": 0.031402406135694616,
+        "mean_test_roc_auc": 0.8040538194444444,
+        "mean_test_average_precision": 0.6839651916862727,
+        "mean_test_f1_positive": 0.6758906033633801,
+        "mean_test_recall_positive": 0.7658333333333334,
+        "mean_test_f1_weighted": 0.766631113180026
+      }
+    }
+  }
+}

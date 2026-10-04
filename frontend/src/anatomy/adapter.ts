@@ -20,6 +20,9 @@ export interface AnatomyHandle {
  * Map body/heart/kidneys from the manifest, clone shared organ materials, normalize
  * bounds, and initialize camera/lighting. update() changes indicator colors/focus
  * without reloading geometry or resetting camera. Both kidneys share creatinine.
+ * props.model_risks contains heart_risk/kidney_risk/patient_risk scores, bands,
+ * classifier thresholds, versions and provenance. Both kidney meshes share kidney_risk;
+ * no left/right-specific disease labels exist. Measurement colors remain a separate policy.
  * Implement resize, capped DPR, offscreen pause, rotation/zoom/reset, organ callbacks,
  * reduced motion, late-load cancellation, and dispose() of owned GPU resources.
  * Missing assets/WebGL must leave the React text cards usable. See assets README.

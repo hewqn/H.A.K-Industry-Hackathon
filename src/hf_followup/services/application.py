@@ -17,14 +17,27 @@ from hf_followup.services.summaries import template_summary
 
 
 class ApplicationService:
-    def __init__(self, cohort, benchmark: dict, settings):
+    def __init__(self, cohort, benchmark: dict, settings, prediction_bundle=None):
         self.cohort, self.benchmark, self.settings = cohort, benchmark, settings
+        self.prediction_bundle = prediction_bundle
+        self.predictions = prediction_bundle.ranking_predictions() if prediction_bundle else {}
         self.snapshots = {}
-        self.default_snapshot = self.create_snapshot("points_v1", 25)
+        default_method = settings.default_method
+        if default_method == "auto":
+            default_method = "patient_risk" if prediction_bundle else "points_v1"
+        self.default_snapshot = self.create_snapshot(default_method, 25)
 
     def create_snapshot(self, method_id: str, capacity: int, mode="operational") -> dict:
         # TODO(BACKEND, OPS-01): persist immutable snapshots and provenance in application_events.
-        ranking = build_ranking(self.cohort.features, {}, {}, method_id, capacity, mode=mode)
+        ranking = build_ranking(
+            self.cohort.features,
+            {},
+            {},
+            method_id,
+            capacity,
+            mode=mode,
+            predictions=self.predictions,
+        )
         snapshot = {
             **ranking,
             "snapshot_id": str(uuid.uuid4()),
@@ -37,6 +50,9 @@ class ApplicationService:
             "overrides": {},
             "provenance": "local_csv_scaffold",
             "sync_mode": "in_memory_scaffold",
+            "model_bundle_id": self.prediction_bundle.manifest["bundle_id"]
+            if self.prediction_bundle
+            else None,
         }
         self.snapshots[snapshot["snapshot_id"]] = snapshot
         return snapshot
@@ -60,18 +76,32 @@ class ApplicationService:
         }
 
     def models(self) -> dict:
-        # TODO(ML): add frozen prediction lookup and labelled CV/test reports through Repository.
+        manifest = self.prediction_bundle.manifest if self.prediction_bundle else None
+        supervised = None
+        if self.prediction_bundle:
+            report = self.prediction_bundle.report
+            supervised = {
+                "evaluation_mode": "exploratory_held_out_test",
+                "development_n": len(report["split"]["development_ids"]),
+                "test_n": len(report["split"]["test_ids"]),
+                "selection": report["selection"],
+                "tasks": report["tasks"],
+                "limitations": report["limitations"],
+            }
         return {
             "methods": [
                 {
                     "method_id": method,
                     "label": method.replace("_", " "),
                     "score_kind": "points" if method.startswith("points") else "model_output",
+                    "available": True,
                 }
-                for method in METHODS
+                for method in (*METHODS, *self.predictions)
             ],
-            "reports": {"benchmark": self.benchmark},
-            "supervised_status": "awaiting_ml_owner",
+            "reports": {"benchmark": self.benchmark, "supervised": supervised},
+            "supervised_status": "ready" if manifest else "not_published",
+            "bundle_id": manifest["bundle_id"] if manifest else None,
+            "selected_models": manifest["models"] if manifest else {},
         }
 
     def patient(self, patient_id: str, snapshot_id: str) -> dict:
@@ -119,7 +149,19 @@ class ApplicationService:
             "provenance": "local_csv_scaffold",
             "summary_status": "template",
             "fact_units": UNITS,
+            "model_risks": self.prediction_bundle.patients[patient_id]["risks"]
+            if self.prediction_bundle
+            else None,
         }
+        # One evidence namespace for summaries/tools. Logistic entries are real scaled
+        # log-odds contributions; forest entries are observations, not local attribution.
+        if patient["model_risks"]:
+            evidence = {item["id"]: item for item in patient["evidence"]}
+            for task in self.prediction_bundle.manifest["models"]:
+                evidence.update(
+                    {item["id"]: item for item in patient["model_risks"][task]["evidence"]}
+                )
+            patient["evidence"] = list(evidence.values())
         patient["evidence_digest"] = digest(patient)
         patient["summary"] = template_summary(patient)
         # TODO(SUM-01): validated provider adapter + cache by digest/prompt/generator versions.

@@ -4,18 +4,47 @@ This repository is a **development scaffold**, not a finished P0 product. The PR
 the source of requirements. Owners should be assigned by the team; no names assumed.
 Every API/config placeholder is intentional and described here or beside its code.
 
+Latest ML experiment addition: `02_training.ipynb` and `ml/experiments.py` implement
+preprocessor+model pipelines for logistic regression, random forest and gradient boosting,
+editable bounded GridSearchCV, held-out reports/confusion matrices at default and
+development-OOF-selected classification thresholds,
+and three frozen output pipelines. `heart_risk`/`kidney_risk` are organ-feature-associated
+recorded-death proxies; `patient_risk` learns from all allowlisted features. Organ-specific
+outcome labels are absent. Experimental relative bands use development OOF-score thirds
+and differ from PRD queue-priority bands; existing measurement colors remain unchanged.
+Results/pipelines are exported locally under ignored `runtime/ml-experiments/`.
+The notebook now tunes parameters with positive-class F1, then selects each family by
+fewest development OOF false negatives, breaking ties with more true negatives/true
+positives, CV AUC, then simpler family. Thresholds remain development-OOF-F1-tuned to
+balance precision/recall; FN-only threshold minimization would flag everyone positive.
+The development selection table exposes all four confusion counts for every candidate
+family. OOF results are conditional on parameter/threshold selection, not independent
+validation. `MODEL_SELECTION="cv_metric"` and `REFIT_METRIC="capture_at_k"` restore
+PRD queue-based selection. This user-selected classification policy differs from that
+queue objective. Inference must apply `predict_proba(...)[:, 1] >= selected_threshold`;
+plain pipeline `.predict()` still uses 0.5. Thresholds are provided in
+`results["selected_thresholds"]` and each task's `selected_threshold` in the JSON report.
+Band boundaries and ranking scores remain separate from the classification threshold.
+Repeatedly viewing the same test set makes further comparisons exploratory; fresh
+validation is required before claiming a general performance improvement.
+The application now consumes a versioned JSON prediction cache and exposes all three
+outputs to the patient API/frontend/3D contract. `make train` refits the committed
+selections; `make publish-models` promotes existing notebook artifacts. See
+[ML integration](ml-integration.md) for scripts, inference and bundle contracts.
+Actual MLflow logging, workspace Delta verification and SQL transport remain owner tasks.
+
 ## Workstreams
 
 | Owner | Start here | What is already provided | What the owner must implement |
 |---|---|---|---|
-| ML/data | `ml/training.py`, `databricks/notebooks/02_training.ipynb` | Feature allowlist, fixed split, scaler/estimator pipelines, CV constructor, baseline evaluator | Actual Databricks ingest/training, bounded candidate evaluation, fold reports, frozen winner/test, MLflow logs, prediction + artifact publication |
+| ML/data | `ml/training.py`, `databricks/notebooks/02_training.ipynb` | Runnable CV notebook, frozen choices, standalone training/inference/publication, versioned cache/API contracts | Fresh validation, actual Databricks ingest/training/MLflow logs and verified Delta publication |
 | Backend/database | `api/main.py`, `services/application.py`, `repositories/base.py`, `databricks/sql/001_tables.sql` | Read-only data slice, request/response schemas, numerical ranking, grounded evidence/indicators, explicit unfinished routes | Repository adapters, Delta/cache transport, event protocol, session revision checks, idempotency, durable snapshots, workflow/overrides, history, summary cache, safe export |
 | Frontend/3D | `frontend/src/App.tsx`, `components/AnatomyViewer.tsx`, `anatomy/adapter.ts` | Working local top-25 selection layout, API types, stale-response protection, typed 3D handoff and text cards | Final UI flows, method/capacity/search, comparisons/history, workflow forms, asset/viewer, lifecycle/performance/accessibility QA |
 | API integrations (shared) | `.env`, `.env.example`, `docs/api-integrations.md` | Commented settings, planned routes, evidence/tool contracts | Each owner configures and verifies the APIs used by their part; coordinate private voice session/tools and summary provider ownership |
 
 ## What runs now
 
-CSV validation → independent points calculation → hashed deterministic top 25 → API
+CSV validation → published patient model (or points fallback) → hashed deterministic top 25 → API
 patient evidence → frontend selection → textual organ indicators and factual overview.
 The benchmark confirms 18/21/19 historical outcomes for age/baseline/revision, overlap
 22/25, and rejects the revision. These are descriptive case results, not trained ML.

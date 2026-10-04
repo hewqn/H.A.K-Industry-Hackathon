@@ -5,6 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from hf_followup.domain.constants import COHORT_ID
+from hf_followup.domain.predictions import ModelFamily, ModelRisks, RiskTask
 
 
 class Request(BaseModel):
@@ -167,6 +168,7 @@ class Snapshot(BaseModel):
     overrides: dict[str, Override]
     provenance: str
     sync_mode: str
+    model_bundle_id: str | None = None
 
 
 class MutationResult(BaseModel):
@@ -197,6 +199,32 @@ class PatientRead(BaseModel):
     fact_units: dict[str, str]
     evidence_digest: str
     summary: Summary
+    model_risks: ModelRisks | None = None
+
+
+class ModelDescriptor(BaseModel):
+    family: ModelFamily
+    model_version: str
+    features: list[str]
+    classification_threshold: float = Field(ge=0, le=1)
+    band_cutoffs: dict[str, float]
+    explanation_method: str
+    calibration_status: Literal["not_calibrated"]
+
+
+class MethodRead(BaseModel):
+    method_id: str
+    label: str
+    score_kind: str
+    available: bool
+
+
+class ModelsRead(BaseModel):
+    methods: list[MethodRead]
+    reports: dict[str, Any]
+    supervised_status: Literal["ready", "not_published"]
+    bundle_id: str | None
+    selected_models: dict[RiskTask, ModelDescriptor]
 
 
 class CohortRead(BaseModel):

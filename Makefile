@@ -1,6 +1,6 @@
 # Commands use the project environment and run from the repository root.
 PYTHON := .venv/bin/python
-.PHONY: setup api web bootstrap train test check types
+.PHONY: setup api web bootstrap train publish-models test check types
 setup:
 	python3 -m venv .venv
 	$(PYTHON) -m pip install -r requirements.txt
@@ -13,6 +13,8 @@ bootstrap:
 	$(PYTHON) scripts/bootstrap_demo.py
 train:
 	$(PYTHON) scripts/train.py
+publish-models:
+	$(PYTHON) scripts/publish_models.py
 test:
 	$(PYTHON) -m pytest
 check:

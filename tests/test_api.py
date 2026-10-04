@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from hf_followup.api.main import create_app
+from hf_followup.config import Settings
 
 
 def forbidden_keys(value):
@@ -16,7 +17,7 @@ def forbidden_keys(value):
 
 
 def test_queue_patient_contract_and_summary():
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(Settings())) as client:
         cohort = client.get("/api/v1/cohorts/current").json()
         snapshot_id = cohort["current_snapshot_id"]
         snapshot = client.get(f"/api/v1/ranking-snapshots/{snapshot_id}").json()
@@ -35,7 +36,7 @@ def test_queue_patient_contract_and_summary():
 
 
 def test_unimplemented_mutation_returns_no_fake_success():
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(Settings())) as client:
         response = client.patch(
             "/api/v1/patients/HF-0001/workflow",
             json={"command_id": "test-command", "expected_revision": 0, "state": "reviewed"},
@@ -45,7 +46,7 @@ def test_unimplemented_mutation_returns_no_fake_success():
 
 
 def test_stale_summary_and_unknown_snapshot():
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(Settings())) as client:
         cohort = client.get("/api/v1/cohorts/current").json()
         response = client.post(
             "/api/v1/patients/HF-0001/summary",

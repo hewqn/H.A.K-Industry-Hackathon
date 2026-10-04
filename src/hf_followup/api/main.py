@@ -15,6 +15,7 @@ from hf_followup.api.schemas import (
     CohortRead,
     ComparisonRequest,
     ContextRequest,
+    ModelsRead,
     MutationResult,
     OverrideRequest,
     PatientRead,
@@ -29,7 +30,9 @@ from hf_followup.api.schemas import (
 from hf_followup.config import Settings
 from hf_followup.data.ingest import ingest_csv
 from hf_followup.domain.errors import DomainError
+from hf_followup.domain.predictions import ModelRisks
 from hf_followup.evaluation.benchmark import case_benchmark
+from hf_followup.repositories.predictions import load_prediction_bundle
 from hf_followup.services.application import ApplicationService
 
 
@@ -42,7 +45,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # after aggregate evaluation and are never supplied to the service or tools.
         ingestion = ingest_csv(settings.root / "data/heart_failure_clinical_records.csv")
         report = case_benchmark(ingestion.cohort, ingestion.outcomes)
-        app.state.service = ApplicationService(ingestion.cohort, report, settings)
+        predictions = load_prediction_bundle(settings.model_bundle_dir, ingestion.cohort)
+        app.state.service = ApplicationService(ingestion.cohort, report, settings, predictions)
         del ingestion  # Release evaluator labels before the application starts serving requests.
         yield
 
@@ -86,20 +90,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     prefix = "/api/v1"
 
     @app.get(prefix + "/health")
-    def health():
+    def health(svc=Depends(service)):
         return {
             "core": "scaffold_ready",
             "mode": "in_memory_scaffold",
             "databricks": "not_connected",
             "voice": "not_connected",
             "persistence": "not_implemented",
+            "ml": "frozen_cache_ready" if svc.prediction_bundle else "not_published",
+            "model_bundle_id": svc.prediction_bundle.manifest["bundle_id"]
+            if svc.prediction_bundle
+            else None,
         }
 
     @app.get(prefix + "/cohorts/current", response_model=CohortRead)
     def cohort(svc=Depends(service)):
         return svc.cohort_read()
 
-    @app.get(prefix + "/models")
+    @app.get(prefix + "/models", response_model=ModelsRead)
     def models(svc=Depends(service)):
         return svc.models()
 
@@ -122,6 +130,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get(prefix + "/patients/{patient_id}", response_model=PatientRead)
     def patient(patient_id: str, snapshot_id: str = Query(max_length=100), svc=Depends(service)):
         return svc.patient(patient_id, snapshot_id)
+
+    @app.get(prefix + "/patients/{patient_id}/risks", response_model=ModelRisks)
+    def patient_risks(
+        patient_id: str, snapshot_id: str = Query(max_length=100), svc=Depends(service)
+    ):
+        risks = svc.patient(patient_id, snapshot_id)["model_risks"]
+        if risks is None:
+            raise DomainError(
+                "model_unavailable",
+                "Publish the frozen models with make publish-models or make train first.",
+                503,
+            )
+        return risks
 
     @app.post(prefix + "/patients/{patient_id}/summary", response_model=Summary)
     def summary(patient_id: str, body: SummaryRequest, svc=Depends(service)):

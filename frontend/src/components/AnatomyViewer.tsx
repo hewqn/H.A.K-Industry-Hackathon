@@ -9,6 +9,9 @@ export interface AnatomyProps {
   ranking_snapshot_id: string;
   indicator_policy_version: string;
   organs: Patient["organs"];
+  // The engineer can consume three score/band/classifier objects without running ML.
+  // These outcome proxies are separate from measurement-driven organ material colors.
+  model_risks: Patient["model_risks"];
   focused_organ: OrganId | null;
   body_opacity: number;
   reduced_motion: boolean;
@@ -49,7 +52,7 @@ export function AnatomyViewer(props: AnatomyProps) {
     void initialize();
     return () => { disposed = true; controller.abort(); viewer.current?.dispose(); viewer.current = null; };
   }, []);
-  useEffect(() => { viewer.current?.update(props); }, [props.organs, props.focused_organ, props.body_opacity]);
+  useEffect(() => { viewer.current?.update(props); }, [props.organs, props.model_risks, props.focused_organ, props.body_opacity]);
   return <section className="anatomy" aria-label={`Recorded organ indicators for ${props.patient_id}`}>
     <div className="section-title"><h2>Measurement indicators</h2><span className="tag">3D engineer handoff</span></div>
     <div ref={host} className={`canvas-host ${ready ? "" : "awaiting-asset"}`} aria-hidden="true">{!ready && <div><strong>3D integration ready</strong><p>The anatomy engineer can connect an asset or viewer here.</p></div>}</div>

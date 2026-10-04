@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{patient_id}/risks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Patient Risks */
+        get: operations["patient_risks_api_v1_patients__patient_id__risks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{patient_id}/summary": {
         parameters: {
             query?: never;
@@ -374,6 +391,70 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** MethodRead */
+        MethodRead: {
+            /** Method Id */
+            method_id: string;
+            /** Label */
+            label: string;
+            /** Score Kind */
+            score_kind: string;
+            /** Available */
+            available: boolean;
+        };
+        /** ModelDescriptor */
+        ModelDescriptor: {
+            /**
+             * Family
+             * @enum {string}
+             */
+            family: "logistic_regression" | "random_forest" | "gradient_boosting";
+            /** Model Version */
+            model_version: string;
+            /** Features */
+            features: string[];
+            /** Classification Threshold */
+            classification_threshold: number;
+            /** Band Cutoffs */
+            band_cutoffs: {
+                [key: string]: number;
+            };
+            /** Explanation Method */
+            explanation_method: string;
+            /**
+             * Calibration Status
+             * @constant
+             */
+            calibration_status: "not_calibrated";
+        };
+        /** ModelRisks */
+        ModelRisks: {
+            /** Bundle Id */
+            bundle_id: string;
+            heart_risk: components["schemas"]["RiskEstimate"];
+            kidney_risk: components["schemas"]["RiskEstimate"];
+            patient_risk: components["schemas"]["RiskEstimate"];
+        };
+        /** ModelsRead */
+        ModelsRead: {
+            /** Methods */
+            methods: components["schemas"]["MethodRead"][];
+            /** Reports */
+            reports: {
+                [key: string]: unknown;
+            };
+            /**
+             * Supervised Status
+             * @enum {string}
+             */
+            supervised_status: "ready" | "not_published";
+            /** Bundle Id */
+            bundle_id: string | null;
+            /** Selected Models */
+            selected_models: {
+                [key: string]: components["schemas"]["ModelDescriptor"];
+            };
+        };
         /** MutationResult */
         MutationResult: {
             snapshot: components["schemas"]["Snapshot"];
@@ -479,6 +560,7 @@ export interface components {
             /** Evidence Digest */
             evidence_digest: string;
             summary: components["schemas"]["Summary"];
+            model_risks?: components["schemas"]["ModelRisks"] | null;
         };
         /** QueueRow */
         QueueRow: {
@@ -508,6 +590,73 @@ export interface components {
             expected_revision: number;
             /** Reason */
             reason: string;
+        };
+        /** RiskEstimate */
+        RiskEstimate: {
+            /** Score */
+            score: number;
+            /**
+             * Band
+             * @enum {string}
+             */
+            band: "lower" | "middle" | "higher";
+            /** Classification Positive */
+            classification_positive: boolean;
+            /** Classification Threshold */
+            classification_threshold: number;
+            /**
+             * Model Family
+             * @enum {string}
+             */
+            model_family: "logistic_regression" | "random_forest" | "gradient_boosting";
+            /** Model Version */
+            model_version: string;
+            /**
+             * Score Kind
+             * @default model_output
+             * @constant
+             */
+            score_kind: "model_output";
+            /**
+             * Calibration Status
+             * @default not_calibrated
+             * @constant
+             */
+            calibration_status: "not_calibrated";
+            /**
+             * Prediction Provenance
+             * @enum {string}
+             */
+            prediction_provenance: "development_in_sample" | "held_out_test" | "new_patient_inference";
+            /**
+             * Explanation Method
+             * @enum {string}
+             */
+            explanation_method: "linear_log_odds" | "recorded_features_no_local_attribution";
+            /** Evidence */
+            evidence: components["schemas"]["RiskEvidence"][];
+            /** Intercept */
+            intercept?: number | null;
+        };
+        /** RiskEvidence */
+        RiskEvidence: {
+            /** Id */
+            id: string;
+            /** Field */
+            field: string;
+            /** Value */
+            value: number | boolean;
+            /** Unit */
+            unit?: string | null;
+            /** Predicate */
+            predicate: string;
+            /**
+             * Scale
+             * @enum {string}
+             */
+            scale: "log_odds" | "recorded_measurement";
+            /** Contribution */
+            contribution?: number | null;
         };
         /** Score */
         Score: {
@@ -575,6 +724,8 @@ export interface components {
             provenance: string;
             /** Sync Mode */
             sync_mode: string;
+            /** Model Bundle Id */
+            model_bundle_id?: string | null;
         };
         /** SnapshotRequest */
         SnapshotRequest: {
@@ -749,7 +900,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelsRead"];
                 };
             };
         };
@@ -838,6 +989,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PatientRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patient_risks_api_v1_patients__patient_id__risks_get: {
+        parameters: {
+            query: {
+                snapshot_id: string;
+            };
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelRisks"];
                 };
             };
             /** @description Validation Error */
