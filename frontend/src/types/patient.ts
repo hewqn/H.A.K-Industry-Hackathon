@@ -45,8 +45,6 @@ export interface Patient {
   };
   organs: Record<OrganId, OrganIndicator>;
   evidence: EvidenceItem[];
-  /** Later DEATH_EVENT from the labelled UCI file. Missing for live add-ons. */
-  later_death?: boolean | null;
   workflow_state: WorkflowState;
   summary?: string;
 }

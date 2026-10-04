@@ -200,30 +200,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Accounts
     # ------------------------------------------------------------------
 
-    def _client_key(request: Request) -> str:
-        return request.client.host if request.client else "unknown"
-
-    def _guarded_auth(request: Request, action):
-        auth = request.app.state.auth
-        key = _client_key(request)
-        auth.attempts.check(key)
-        try:
-            result = action(auth)
-        except DomainError:
-            auth.attempts.fail(key)
-            raise
-        auth.attempts.reset(key)
-        return result
-
     @app.post(prefix + "/auth/register", response_model=TokenRead)
     def register(body: Credentials, request: Request):
-        def action(auth):
-            return auth.issue_token(auth.register(body.username, body.password))
-        return _guarded_auth(request, action)
+        auth = request.app.state.auth
+        user = auth.register(body.username, body.password)
+        return auth.issue_token(user)
 
     @app.post(prefix + "/auth/login", response_model=TokenRead)
     def login(body: Credentials, request: Request):
-        return _guarded_auth(request, lambda auth: auth.login(body.username, body.password))
+        return request.app.state.auth.login(body.username, body.password)
 
     @app.get(prefix + "/auth/me", response_model=UserRead)
     def me(user: dict = Depends(current_user)):

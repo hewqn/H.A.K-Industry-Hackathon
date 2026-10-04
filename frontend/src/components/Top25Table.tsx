@@ -28,7 +28,6 @@ function ColumnGroup({ showMove }: { showMove: boolean }) {
       <col className="col-cr" />
       <col className="col-age" />
       <col className="col-score" />
-      <col className="col-death" />
       {showMove && <col className="col-move" />}
     </colgroup>
   );
@@ -47,12 +46,11 @@ export default function Top25Table({
     : top25.some(
         (p) => p.score_kind === "points" && p.oldest_rank != null,
       );
-  const moveHeader = isCombined ? "vs ML" : "vs Age";
-  const laterDeaths = top25.filter((patient) => patient.later_death === true).length;
+  const moveHeader = isCombined ? "vs Model" : "vs Oldest";
 
   return (
     <aside className="queue-panel" aria-label="Top 25 call list">
-      <div className="panel-heading"><div><p className="eyebrow">Current call order</p><h3>Top 25 <span className="count-badge">{laterDeaths} later deaths</span></h3></div><InterfaceIcon name="queue" /></div>
+      <div className="panel-heading"><div><p className="eyebrow">Current call order</p><h3>Top 25 <span className="count-badge">{top25.length}</span></h3></div><InterfaceIcon name="queue" /></div>
       <p className="queue-description">Select a record to review its measurements and evidence.</p>
       <div className="queue-table-box">
         <div className="queue-table-wrap">
@@ -69,7 +67,6 @@ export default function Top25Table({
                 <th scope="col" title="Serum creatinine (mg/dL)">Cr</th>
                 <th scope="col" title="Age (years)">Age</th>
                 <th scope="col">Score</th>
-                <th scope="col">Death</th>
                 {showMove && <th scope="col">{moveHeader}</th>}
               </tr>
             </thead>
@@ -121,9 +118,6 @@ export default function Top25Table({
                         : patient.score_kind === "age"
                           ? "—"
                           : patient.score}
-                    </td>
-                    <td className={patient.later_death ? "warn" : ""}>
-                      {patient.later_death == null ? "—" : patient.later_death ? "Yes" : "No"}
                     </td>
                     {showMove && (
                       <td

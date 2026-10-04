@@ -123,18 +123,6 @@ function computeScore(row: RawRow, heartWeight: number): number {
   return score;
 }
 
-export async function loadDeathIndex(): Promise<Record<string, boolean>> {
-  const text = await fetch("/data/heart_failure_clinical_records.csv").then((response) => {
-    if (!response.ok) throw new Error("csv");
-    return response.text();
-  });
-  const deaths: Record<string, boolean> = {};
-  parseCSV(text).forEach((row, index) => {
-    deaths[`HF-${String(index + 1).padStart(4, "0")}`] = row.DEATH_EVENT === 1;
-  });
-  return deaths;
-}
-
 export function parseCSV(text: string): RawRow[] {
   const lines = text.trim().split("\n");
   const headers = lines[0].split(",");

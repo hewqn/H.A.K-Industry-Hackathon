@@ -69,22 +69,9 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = sessionStorage.getItem("hak-token");
-  const response = await fetch(`/api/v1${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  const response = await fetch(`/api/v1${path}`, { ...options, headers: { "Content-Type": "application/json", ...options.headers } });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ code: "connection_failed", message: "API request failed." }));
-    if (response.status === 401 && !path.startsWith("/auth/")) {
-      sessionStorage.removeItem("hak-token");
-      sessionStorage.removeItem("hak-role");
-      window.dispatchEvent(new Event("hak-auth-lost"));
-    }
     throw new ApiError(error.code, error.message, response.status);
   }
   return response.json() as Promise<T>;

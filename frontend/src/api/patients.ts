@@ -11,14 +11,6 @@ export function savePatient(facts: PatientFacts, commandId: string): Promise<Pat
   return mutate("/patients", "POST", facts, commandId);
 }
 
-export function updatePatient(
-  patientId: string,
-  facts: PatientFacts,
-  commandId: string,
-): Promise<PatientReceipt> {
-  return mutate(`/patients/${encodeURIComponent(patientId)}`, "PUT", facts, commandId);
-}
-
 export function deletePatient(patientId: string, reason: string, commandId: string): Promise<PatientReceipt> {
   return mutate(`/patients/${encodeURIComponent(patientId)}`, "DELETE", { reason }, commandId);
 }

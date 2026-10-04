@@ -21,9 +21,7 @@ def _bearer(token):
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("HF_ADMIN_USERNAME", "")
-    monkeypatch.setenv("HF_ADMIN_PASSWORD", "")
+def client(tmp_path):
     repo = SQLiteRepository(tmp_path / "auth.db")
     with patch("hf_followup.api.main._create_repository", return_value=(repo, "sqlite")):
         with TestClient(create_app()) as c:
@@ -68,14 +66,6 @@ def test_wrong_password_and_bad_token_rejected(client, tokens):
     assert resp.status_code == 401
     forged = tokens["viewer"]["access_token"][:-2] + "xx"
     assert client.get("/api/v1/auth/me", headers=_bearer(forged)).status_code == 401
-
-
-def test_login_is_rate_limited(client, tokens):
-    for _ in range(8):
-        assert client.post("/api/v1/auth/login", json={"username": "bob", "password": "nope-nope-nope"}).status_code == 401
-    blocked = client.post("/api/v1/auth/login", json={"username": "bob", "password": "bob-pass-12"})
-    assert blocked.status_code == 429
-    assert blocked.json()["code"] == "too_many_attempts"
 
 
 def test_reads_stay_open_without_login(client):
