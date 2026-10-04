@@ -13,11 +13,13 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from hf_followup.api.schemas import (
     CohortRead,
     ComparisonRequest,
     ContextRequest,
+    Credentials,
     ModelsRead,
     MutationResult,
     OverrideRequest,
@@ -27,11 +29,14 @@ from hf_followup.api.schemas import (
     PatientRead,
     PatientUpdateRequest,
     ResetRequest,
+    RoleUpdate,
     Snapshot,
     SnapshotRequest,
     Summary,
     SummaryRequest,
+    TokenRead,
     ToolRequest,
+    UserRead,
     VoiceContextRead,
     VoiceSessionRead,
     VoiceSessionRequest,
@@ -44,6 +49,7 @@ from hf_followup.domain.predictions import ModelRisks
 from hf_followup.evaluation.benchmark import case_benchmark
 from hf_followup.repositories.predictions import load_prediction_bundle
 from hf_followup.services.application import ApplicationService
+from hf_followup.services.auth import AuthService, current_actor
 from hf_followup.services.voice import VoiceService
 
 
@@ -70,6 +76,21 @@ def _create_repository(settings: Settings):
     return SQLiteRepository(db_path), "sqlite"
 
 
+def _create_user_store(repo):
+    """Keep accounts beside the event log: Delta users table, SQLite table, or memory."""
+    from hf_followup.repositories.users import (
+        DatabricksUserStore,
+        InMemoryUserStore,
+        SQLiteUserStore,
+    )
+
+    if repo is None:
+        return InMemoryUserStore()
+    if type(repo).__name__ == "DatabricksRepository":
+        return DatabricksUserStore(repo)
+    return SQLiteUserStore(repo._db_path)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
 
@@ -91,6 +112,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         repo, repo_mode = _create_repository(settings)
         app.state.repo_mode = repo_mode
+        app.state.auth = AuthService(_create_user_store(repo), os.getenv("HF_AUTH_SECRET") or None)
+        admin_user, admin_password = os.getenv("HF_ADMIN_USERNAME"), os.getenv("HF_ADMIN_PASSWORD")
+        if admin_user and admin_password:
+            app.state.auth.ensure_admin(admin_user, admin_password)
         app.state.service = ApplicationService(
             ingestion.cohort, report, settings, predictions, repository=repo,
             predictor_factory=predictor_factory,
@@ -153,6 +178,64 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return svc
 
     prefix = "/api/v1"
+    bearer = HTTPBearer(auto_error=False)
+
+    def current_user(
+        request: Request, creds: HTTPAuthorizationCredentials | None = Depends(bearer)
+    ) -> dict:
+        if creds is None:
+            raise DomainError("not_authenticated", "Log in to continue.", 401)
+        return request.app.state.auth.authenticate(creds.credentials)
+
+    # Async so the actor contextvar propagates into the sync endpoint's thread.
+    async def require_admin(user: dict = Depends(current_user)) -> dict:
+        if user["role"] != "admin":
+            raise DomainError("forbidden", "Only admin accounts can change data.", 403)
+        current_actor.set(user["username"])
+        return user
+
+    admin_only = [Depends(require_admin)]
+
+    # ------------------------------------------------------------------
+    # Accounts
+    # ------------------------------------------------------------------
+
+    def _client_key(request: Request) -> str:
+        return request.client.host if request.client else "unknown"
+
+    def _guarded_auth(request: Request, action):
+        auth = request.app.state.auth
+        key = _client_key(request)
+        auth.attempts.check(key)
+        try:
+            result = action(auth)
+        except DomainError:
+            auth.attempts.fail(key)
+            raise
+        auth.attempts.reset(key)
+        return result
+
+    @app.post(prefix + "/auth/register", response_model=TokenRead)
+    def register(body: Credentials, request: Request):
+        def action(auth):
+            return auth.issue_token(auth.register(body.username, body.password))
+        return _guarded_auth(request, action)
+
+    @app.post(prefix + "/auth/login", response_model=TokenRead)
+    def login(body: Credentials, request: Request):
+        return _guarded_auth(request, lambda auth: auth.login(body.username, body.password))
+
+    @app.get(prefix + "/auth/me", response_model=UserRead)
+    def me(user: dict = Depends(current_user)):
+        return user
+
+    @app.get(prefix + "/users", response_model=list[UserRead], dependencies=admin_only)
+    def list_users(request: Request):
+        return request.app.state.auth.list_users()
+
+    @app.patch(prefix + "/users/{user_id}/role", response_model=UserRead, dependencies=admin_only)
+    def set_role(user_id: str, body: RoleUpdate, request: Request):
+        return request.app.state.auth.set_role(user_id, body.role)
 
     # ------------------------------------------------------------------
     # Health
@@ -190,7 +273,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Patient CRUD — POST must be registered before GET {patient_id} so
     # FastAPI doesn't try to match "patients" as a path parameter.
-    @app.post(prefix + "/patients", response_model=PatientMutationRead)
+    @app.post(prefix + "/patients", response_model=PatientMutationRead, dependencies=admin_only)
     def add_patient(body: PatientCreateRequest, svc=Depends(service)):
         facts = {
             "age": body.age,
@@ -250,21 +333,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             body.method_id, body.capacity, body.mode,
         )
 
-    @app.patch(prefix + "/patients/{patient_id}/workflow")
+    @app.patch(prefix + "/patients/{patient_id}/workflow", dependencies=admin_only)
     def workflow(patient_id: str, body: WorkflowRequest, svc=Depends(service)):
         return svc.transition_workflow(
             body.command_id, body.expected_revision,
             patient_id, body.state, body.reason,
         )
 
-    @app.post(prefix + "/overrides")
+    @app.post(prefix + "/overrides", dependencies=admin_only)
     def overrides(body: OverrideRequest, svc=Depends(service)):
         return svc.apply_override(
             body.command_id, body.expected_revision,
             body.patient_id, body.action, body.reason, body.session_id,
         )
 
-    @app.put(prefix + "/patients/{patient_id}", response_model=PatientMutationRead)
+    @app.put(prefix + "/patients/{patient_id}", response_model=PatientMutationRead, dependencies=admin_only)
     def update_patient(patient_id: str, body: PatientUpdateRequest, svc=Depends(service)):
         updates = {
             k: v for k, v in {
@@ -285,13 +368,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise DomainError("no_updates", "No fields to update.", 422)
         return svc.update_patient(body.command_id, body.expected_revision, patient_id, updates)
 
-    @app.delete(prefix + "/patients/{patient_id}", response_model=PatientMutationRead)
+    @app.delete(prefix + "/patients/{patient_id}", response_model=PatientMutationRead, dependencies=admin_only)
     def delete_patient(patient_id: str, body: PatientDeleteRequest, svc=Depends(service)):
         return svc.delete_patient(
             body.command_id, body.expected_revision, patient_id, body.reason,
         )
 
-    @app.post(prefix + "/sessions/reset")
+    @app.post(prefix + "/sessions/reset", dependencies=admin_only)
     def reset(body: ResetRequest, svc=Depends(service)):
         return svc.reset_session(
             body.command_id, body.expected_revision, body.reason,

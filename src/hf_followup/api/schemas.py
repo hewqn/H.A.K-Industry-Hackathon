@@ -12,6 +12,29 @@ class Request(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
 
 
+class Credentials(Request):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=8, max_length=200)
+
+
+class RoleUpdate(Request):
+    role: Literal["admin", "viewer"]
+
+
+class UserRead(BaseModel):
+    user_id: str
+    username: str
+    role: Literal["admin", "viewer"]
+    created_at: str
+
+
+class TokenRead(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    user: UserRead
+
+
 class Command(Request):
     command_id: str = Field(min_length=8, max_length=100)
     expected_revision: int = Field(ge=0)

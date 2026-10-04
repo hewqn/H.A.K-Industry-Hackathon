@@ -1,5 +1,7 @@
 import { api } from "./client";
-import type { Models } from "./client";
+import { loadRanking } from "./loadRanking";
+import { loadDeathIndex } from "../utils/scoring";
+import type { Patient } from "../types/patient";
 
 export interface CaseReport {
   kept: number;
@@ -16,22 +18,37 @@ interface CohortCounts {
   missing_rows?: number;
 }
 
+function top25Ids(patients: Patient[]): string[] {
+  return patients.slice(0, 25).map((patient) => patient.patient_id);
+}
+
+function captured(ids: string[], deaths: Record<string, boolean>): number {
+  return ids.filter((id) => deaths[id] === true).length;
+}
+
 export async function loadCaseReport(): Promise<CaseReport | null> {
   try {
-    const [models, cohort] = await Promise.all([
-      api<Models>("/models"),
+    const [cohort, oldest, weight2, weight3, deaths] = await Promise.all([
       api<CohortCounts>("/cohorts/current"),
+      loadRanking("oldest"),
+      loadRanking(2),
+      loadRanking(3),
+      loadDeathIndex(),
     ]);
-    const metrics = models.reports.benchmark.metrics;
+    const oldestIds = top25Ids(oldest.patients);
+    const weight2Ids = top25Ids(weight2.patients);
+    const weight3Ids = top25Ids(weight3.patients);
+    const oldestDeaths = captured(oldestIds, deaths);
+    const weight2Deaths = captured(weight2Ids, deaths);
+    const weight3Deaths = captured(weight3Ids, deaths);
     return {
-      // Evaluation remains tied to the original labelled cohort after live CRUD.
-      kept: metrics.oldest_first.n,
+      kept: cohort.accepted_count ?? 0,
       dropped: cohort.missing_rows ?? 0,
-      oldestDeaths: metrics.oldest_first.captured_outcomes,
-      weight2Deaths: metrics.points_v1.captured_outcomes,
-      weight3Deaths: metrics.points_heart3.captured_outcomes,
-      overlap: models.reports.benchmark.overlap_count,
-      keepWeight2: models.reports.benchmark.decision === "reject_candidate",
+      oldestDeaths,
+      weight2Deaths,
+      weight3Deaths,
+      overlap: weight2Ids.filter((id) => weight3Ids.includes(id)).length,
+      keepWeight2: weight2Deaths > oldestDeaths,
     };
   } catch {
     return null;

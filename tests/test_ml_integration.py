@@ -6,7 +6,7 @@ import shutil
 from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
+from admin_client import AdminClient
 
 from hf_followup.api.main import create_app
 from hf_followup.config import ROOT, Settings
@@ -116,7 +116,7 @@ def test_api_uses_only_cache_and_exposes_all_three_risks(frozen_models, monkeypa
 
     monkeypatch.setattr("joblib.load", forbidden_load)
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
+        with AdminClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
             cohort = client.get("/api/v1/cohorts/current").json()
             snapshot_id = cohort["current_snapshot_id"]
             snapshot = client.get(f"/api/v1/ranking-snapshots/{snapshot_id}").json()
@@ -179,7 +179,7 @@ def test_patient_crud_scores_frozen_models_and_preserves_snapshot_history(frozen
     folder, directory, _ = frozen_models
     predictor = RiskPredictor(directory)
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
+        with AdminClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
             service = client.app.state.service
             original_id = service.default_snapshot["snapshot_id"]
             original = client.get("/api/v1/patients/HF-0001", params={"snapshot_id": original_id}).json()
@@ -233,7 +233,7 @@ def test_scored_patient_events_restart_without_deserializing_models(frozen_model
     database = tmp_path / "patients.db"
     settings = Settings(model_bundle_dir=folder / "published", session_id="patient-replay")
     with patch("hf_followup.api.main._create_repository", side_effect=lambda _: (SQLiteRepository(database), "sqlite")):
-        with TestClient(create_app(settings)) as client:
+        with AdminClient(create_app(settings)) as client:
             service = client.app.state.service
             facts = service.cohort.features["HF-0001"]["facts"]
             body = {**facts, "command_id": "persist-new-patient", "expected_revision": 0}
@@ -243,7 +243,7 @@ def test_scored_patient_events_restart_without_deserializing_models(frozen_model
             deleted_body = {"command_id": "persist-delete-patient", "expected_revision": 2, "reason": "Duplicate baseline"}
             deleted = client.request("DELETE", "/api/v1/patients/HF-0001", json=deleted_body).json()
         with patch("joblib.load", side_effect=AssertionError("Replay must use persisted compatible scores")):
-            with TestClient(create_app(settings)) as client:
+            with AdminClient(create_app(settings)) as client:
                 service = client.app.state.service
                 assert service.revision == 3
                 assert "HF-0001" not in service.cohort.features
@@ -258,7 +258,7 @@ def test_scored_patient_events_restart_without_deserializing_models(frozen_model
 def test_inference_failure_is_atomic_and_stale_revision_does_not_infer(frozen_models):
     folder, _, _ = frozen_models
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
+        with AdminClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
             service = client.app.state.service
             facts = service.cohort.features["HF-0001"]["facts"]
             service._predictor_factory = lambda: (_ for _ in ()).throw(ValueError("Invalid artifacts"))
@@ -286,7 +286,7 @@ def test_legacy_patient_events_are_scored_on_replay(frozen_models, tmp_path):
         "payload": {"action": "add_patient", "patient_id": "HF-0300", "source_row": 300, "facts": facts},
     })
     with patch("hf_followup.api.main._create_repository", return_value=(repo, "sqlite")):
-        with TestClient(create_app(Settings(model_bundle_dir=folder / "published", session_id="legacy"))) as client:
+        with AdminClient(create_app(Settings(model_bundle_dir=folder / "published", session_id="legacy"))) as client:
             row = next(row for row in client.app.state.service.default_snapshot["rows"] if row["patient_id"] == "HF-0300")
             assert row["model_risks"] == RiskPredictor(directory).predict_patient(facts)
             assert row["score"]["prediction_provenance"] == "new_patient_inference"
@@ -294,7 +294,7 @@ def test_legacy_patient_events_are_scored_on_replay(frozen_models, tmp_path):
 
 def test_patient_api_rejects_nonfinite_values_and_outcome_fields():
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app(Settings())) as client:
+        with AdminClient(create_app(Settings())) as client:
             facts = client.app.state.service.cohort.features["HF-0001"]["facts"]
             body = {**facts, "command_id": "invalid-input-command", "expected_revision": 0}
             for field in ("age", "platelets", "serum_creatinine"):
@@ -313,7 +313,7 @@ def test_patient_writes_are_serialized_and_do_not_train(frozen_models):
 
     folder, _, _ = frozen_models
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
+        with AdminClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
             facts = client.app.state.service.cohort.features["HF-0001"]["facts"]
             with patch.object(RandomForestClassifier, "fit", side_effect=AssertionError("No request training")), patch.object(LogisticRegression, "fit", side_effect=AssertionError("No request training")):
                 with ThreadPoolExecutor(max_workers=2) as pool:
@@ -328,7 +328,7 @@ def test_patient_writes_are_serialized_and_do_not_train(frozen_models):
 def test_voice_context_is_invalidated_by_crud_and_new_scores_match(frozen_models):
     folder, _, _ = frozen_models
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
+        with AdminClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
             client.headers["origin"] = "http://localhost:5173"
             service = client.app.state.service
             old_body = {"snapshot_id": service.default_snapshot["snapshot_id"], "patient_id": "HF-0001"}

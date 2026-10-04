@@ -17,5 +17,7 @@ CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.application_events
   (command_id STRING, session_id STRING, revision BIGINT, expected_revision BIGINT, command_digest STRING, payload_json STRING, created_at STRING) USING DELTA;
 CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.summary_cache
   (cache_key STRING, patient_id STRING, evidence_digest STRING, payload_json STRING) USING DELTA;
+CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.users
+  (user_id STRING, username STRING, password_hash STRING, role STRING, created_at STRING) USING DELTA;
 -- Delta uniqueness is enforced by the application protocol, not these table definitions.
 -- Owner must supply actual grants for separate evaluator and app identities if permitted.
