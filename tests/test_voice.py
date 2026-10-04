@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
+from admin_client import AdminClient
 
 from hf_followup.api.main import create_app
 from hf_followup.config import Settings
@@ -27,7 +27,7 @@ def forbidden_keys(value):
 def client():
     settings = Settings(elevenlabs_api_key="secret-test-key", elevenlabs_agent_id="test-agent")
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app(settings)) as client:
+        with AdminClient(create_app(settings)) as client:
             client.headers["origin"] = ORIGIN
             yield client
 

@@ -9,7 +9,7 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
+from admin_client import AdminClient
 
 from hf_followup.api.main import create_app
 
@@ -22,7 +22,7 @@ def _cmd(revision=0):
 @pytest.fixture()
 def client():
     with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
-        with TestClient(create_app()) as c:
+        with AdminClient(create_app()) as c:
             yield c
 
 
@@ -306,7 +306,7 @@ class TestAuditEvents:
 
         repo = SQLiteRepository(tmp_path / "audit.db")
         with patch("hf_followup.api.main._create_repository", return_value=(repo, "sqlite")):
-            with TestClient(create_app()) as c:
+            with AdminClient(create_app()) as c:
                 c.patch("/api/v1/patients/HF-0001/workflow", json={
                     **_cmd(0), "state": "reviewed",
                 })

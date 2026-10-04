@@ -23,6 +23,7 @@ _ALLOWED_TABLES = frozenset({
     "evaluation_reports",
     "application_events",
     "summary_cache",
+    "users",
 })
 
 

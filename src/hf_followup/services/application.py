@@ -20,6 +20,7 @@ from hf_followup.domain.indicators import organ_indicators
 from hf_followup.domain.predictions import RISK_TASKS, ModelRisks
 from hf_followup.domain.ranking import build_ranking
 from hf_followup.repositories.bundle import digest
+from hf_followup.services.auth import current_actor
 from hf_followup.services.summaries import template_summary
 
 # Valid workflow transitions: from_state -> set of allowed to_states.
@@ -211,6 +212,9 @@ class ApplicationService:
 
         If no repository is configured, executes in memory only.
         """
+        actor = current_actor.get()
+        if actor:
+            payload = {**payload, "performed_by": actor}
         if self.repo:
             result = self.repo.append_command({
                 "command_id": command_id,
