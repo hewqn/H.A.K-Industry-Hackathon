@@ -27,7 +27,7 @@
 
 html, body, #root {
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
 }
 
 body {
@@ -40,7 +40,7 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 /* ── Top Nav ── */
@@ -124,8 +124,8 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(260px, 0.85fr) minmax(380px, 1.2fr);
-  gap: 24px;
+  grid-template-columns: minmax(240px, 0.7fr) minmax(440px, 1.5fr);
+  gap: 20px;
   min-height: 0;
   height: 100%;
 }
@@ -542,6 +542,12 @@ body {
 .score-strip-head {
   display: flex;
   align-items: baseline;
+  gap: 16px;
+}
+
+.score-metric {
+  display: flex;
+  align-items: baseline;
   gap: 8px;
 }
 
@@ -771,7 +777,7 @@ body {
 }
 
 .weight-buttons button {
-  padding: 5px 16px;
+  padding: 5px 12px;
   border: 1.5px solid var(--border);
   border-radius: 8px;
   background: var(--white);
@@ -793,12 +799,58 @@ body {
   color: white;
 }
 
+.case-report {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+
+.case-cohort {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.case-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.case-metrics div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.case-metrics span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.case-metrics b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Queue Table ── */
 .queue-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
+  flex: 2 1 320px;
+  min-height: 280px;
+}
+
+.patient-record-block {
+  flex: 0 0 auto;
 }
 
 .queue-panel h3 {
@@ -851,8 +903,9 @@ body {
 .queue-table .col-ef,
 .queue-table .col-cr,
 .queue-table .col-age,
-.queue-table .col-score {
-  width: 16.5%;
+.queue-table .col-score,
+.queue-table .col-move {
+  width: 14%;
 }
 
 .queue-table thead {
@@ -910,6 +963,21 @@ body {
   color: var(--text) !important;
 }
 
+.move-up {
+  font-weight: 700;
+  color: var(--success) !important;
+}
+
+.move-down {
+  font-weight: 700;
+  color: var(--danger) !important;
+}
+
+.move-same {
+  font-weight: 600;
+  color: var(--text-muted) !important;
+}
+
 td.warn {
   color: var(--danger) !important;
   font-weight: 600;
@@ -944,7 +1012,12 @@ td.warn {
   display: grid;
   grid-template-columns: 1fr 1fr;
   column-gap: 28px;
+  row-gap: 6px;
   align-items: center;
+}
+
+.legend-row.legend-score {
+  grid-column: 1 / -1;
 }
 
 .color-legend:has(.color-legend-title) {
@@ -997,15 +1070,22 @@ td.warn {
 }
 
 .legend-swatch.anatomy-heart {
-  background: linear-gradient(90deg, #c4786a 0%, #edd4ca 100%);
+  background: linear-gradient(90deg, #c4786a 0%, #efe6e1 100%);
 }
 
 .legend-swatch.anatomy-kidney {
-  background: linear-gradient(90deg, #8b2e2e 0%, #c9847a 100%);
+  background: linear-gradient(90deg, #b24a42 0%, #e8ddd8 100%);
 }
 
 .legend-swatch.risk-heat {
-  background: linear-gradient(90deg, #1f8a5b 0%, #e6b325 50%, #d12c2c 100%);
+  /* Same stops as heatColor() in organColors.ts */
+  background: linear-gradient(
+    90deg,
+    #16c784 0%,
+    #5ec063 38%,
+    #e6b325 62%,
+    #d12c2c 100%
+  );
 }
 
 .legend-pin {
@@ -1054,6 +1134,12 @@ td.warn {
   margin-top: 2px;
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.legend-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .app-footer a {

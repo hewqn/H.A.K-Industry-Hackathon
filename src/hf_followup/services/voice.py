@@ -23,6 +23,7 @@ READ_TOOLS = frozenset({"get_queue", "get_patient", "explain_priority", "get_com
 LIMITATIONS = [
     "Follow-up prioritization is not a diagnosis or treatment recommendation.",
     "Organ indicators use prototype measurement thresholds, not organ-model probabilities.",
+    "Published model outputs are uncalibrated recorded-outcome proxies, not organ diagnoses or mortality probabilities.",
     "Individual historical outcomes, symptoms, medicines, and contact details are unavailable.",
 ]
 
@@ -159,7 +160,9 @@ class VoiceService:
             # future repository starts attaching additional metadata to records.
             patient = PatientRead.model_validate(self.application.patient(body.patient_id, body.snapshot_id)).model_dump()
             result["patient"] = patient
-            result["risk_outputs_status"] = "unavailable: supervised models are not connected on this branch"
+            # Development now publishes all three frozen outputs. Report their
+            # actual presence in the typed patient envelope, never a fixed status.
+            result["risk_outputs_status"] = "ready" if patient["model_risks"] else "not_published"
         else:
             if body.report_id != "case-benchmark-v1":
                 raise DomainError("report_not_available", "The requested model report is not available.", 404)

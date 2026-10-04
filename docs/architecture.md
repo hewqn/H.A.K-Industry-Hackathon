@@ -6,6 +6,14 @@ flowchart LR
   Ingest --> Features[Allowlisted patient features]
   Ingest --> Outcomes[Evaluator-only outcomes]
   Features --> Rank[Shared Python ranking]
+  Features --> Train[Frozen development-only training]
+  Outcomes --> Train
+  Train --> Artifacts[Trusted versioned pipelines and metadata]
+  Artifacts --> Inference[Batch inference]
+  Features --> Inference
+  Inference --> Cache[Checksummed three-risk JSON cache]
+  Cache --> Rank
+  Cache --> API
   Outcomes --> Benchmark[Historical evaluator]
   Benchmark --> Reports[Aggregate descriptive reports]
   Rank --> API[FastAPI read-only starter]
@@ -21,7 +29,8 @@ real integration verification. This diagram describes boundaries, not deployed s
 
 `domain/` owns deterministic calculations; no database/provider/training side effects.
 `data/` separates outcomes from features at ingest. `evaluation/` may access outcomes
-and publishes aggregates. `ml/` supplies training constructors and split entry points.
+and publishes aggregates. `ml/` supplies frozen training, inference and publication.
+The API loads only JSON through `repositories/predictions.py`; model loading stays offline.
 `services/` owns the one patient evidence envelope. `api/` adapts it to HTTP/Pydantic.
 `repositories/` is the backend owner's data/persistence interface. React owns selected
 patient/snapshot and rejects stale responses. The engineer's anatomy module consumes

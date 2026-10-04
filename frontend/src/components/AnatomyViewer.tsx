@@ -57,7 +57,7 @@ function OrganCanvas({
   organId: OrganKey;
   indicator: OrganIndicator;
   colorMode: ColorMode;
-  riskScore: number;
+  riskScore?: number;
   focused: boolean;
   expanded: boolean;
   hidden: boolean;
@@ -101,10 +101,10 @@ function OrganCanvas({
           gl={{ antialias: true, alpha: true }}
         >
           <color attach="background" args={["#f8f9fb"]} />
-          <hemisphereLight args={["#f8f9fb", "#eef0f4", 0.8]} />
-          <ambientLight intensity={0.65} />
-          <directionalLight position={[3, 5, 6]} intensity={1.2} />
-          <directionalLight position={[-4, 1, 2]} intensity={0.28} />
+          <hemisphereLight args={["#f3efe9", "#d4cfc8", 0.5]} />
+          <ambientLight intensity={0.36} />
+          <directionalLight position={[3, 5, 6]} intensity={0.88} />
+          <directionalLight position={[-4, 1, 2]} intensity={0.2} />
 
           <Suspense fallback={null}>
             <OrganModel
@@ -163,7 +163,7 @@ export default function AnatomyViewer({
   focusedOrgan,
   onOrganSelect,
   colorMode = "anatomy",
-  organRisk = { heart: 0, kidney: 0 },
+  organRisk,
   applyColour = { heart: true, kidney: true },
   onApplyColourChange,
 }: AnatomyViewerProps) {
@@ -191,7 +191,7 @@ export default function AnatomyViewer({
         organId="heart"
         indicator={organs.heart}
         colorMode={colorMode}
-        riskScore={organRisk.heart}
+        riskScore={organRisk?.heart}
         focused={focusedOrgan === "heart"}
         expanded={expanded === "heart"}
         hidden={expanded === "kidney"}
@@ -210,7 +210,7 @@ export default function AnatomyViewer({
         organId="kidney"
         indicator={organs.kidney_left}
         colorMode={colorMode}
-        riskScore={organRisk.kidney}
+        riskScore={organRisk?.kidney}
         focused={focusedOrgan === "kidney_left" || focusedOrgan === "kidney_right"}
         expanded={expanded === "kidney"}
         hidden={expanded === "heart"}

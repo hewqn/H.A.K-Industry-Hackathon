@@ -11,6 +11,7 @@ Use Python 3.11+ and Node 22.12+ (or a compatible newer Node). From the reposito
 
 ```sh
 make setup
+make train         # Refit frozen ML selections and publish their app cache
 make bootstrap     # Validate data, reproduce benchmark, refresh safe patient example
 make api           # Terminal 1: http://127.0.0.1:8000/docs
 make web           # Terminal 2: http://127.0.0.1:5173
@@ -21,9 +22,19 @@ not included in this handoff. No provider credentials are needed for the local s
 `.env` has commented connection instructions and blank credentials; `.env.example`
 is its committed template. Copy `.env.example` to `.env` when cloning the repository.
 
-Other entry commands: `make train` prepares the ML split and candidate constructors
-without fitting a model; `make types` regenerates OpenAPI/frontend contracts;
+Other entry commands: `make publish-models` promotes the notebook artifacts without
+fitting; `make types` regenerates OpenAPI/frontend contracts;
 `make check` runs Python lint/tests and the TypeScript/production-build checks.
+
+The ML notebook `databricks/notebooks/02_training.ipynb` now runs bounded logistic/
+forest/gradient-boosting grid searches for heart-feature, kidney-feature, and full-patient outcome models,
+with editable grids, development-selected classification thresholds, reports/confusion
+matrices and exports to ignored
+`runtime/ml-experiments/`. Organ scores predict the recorded death outcome from feature
+subsets; they are not organ-failure/severity predictions. Relative score bands and
+measurement indicators are separate. The API consumes a versioned JSON cache of all
+three outputs without training during requests. See [ML integration](docs/ml-integration.md)
+for Python/batch inference, thresholds and the database/3D handoff.
 
 ## Provided starting work
 
@@ -31,16 +42,22 @@ without fitting a model; `make types` regenerates OpenAPI/frontend contracts;
   separate missing-row/cell counts, and an explicit predictor allowlist.
 - Shared points/age ranking, heart-only revision, deterministic ties, queue calculation,
   organ indicators, and descriptive benchmark (18/21/19 outcomes; overlap 22/25).
-- Read-only FastAPI data slice and typed patient/evidence/snapshot contracts.
+- FastAPI reads, patient CRUD, workflow/override commands, audit and queue export,
+  with typed patient/evidence/snapshot contracts and local SQLite persistence.
 - Small React queue/selection layout with stale-response checks and factual summaries.
 - **No generated 3D models.** Typed viewer/asset handoff and usable text cards for the
   engineer; the rendering adapter is intentionally left for them to implement.
-- ML split/pipeline constructors, notebook skeletons, Delta table reference, repository
+- Frozen training/inference/publication scripts, runnable ML experiments, Delta export, repository
   interface, API wiring TODOs, and owner handoff notes.
+- Private ElevenLabs voice/text sessions, seven scoped client tools, factual fallback,
+  transcript and playback lifecycle. See [voice setup](docs/elevenlabs-integration.md).
 
-Snapshots are in memory and disappear on restart. Workflow, override, audit, export,
-voice, Databricks, fitted ML, and provider-summary integrations remain unfinished.
-Their routes fail explicitly until implemented; a file or route does not claim completion.
+The API loads published ML outputs without fitting during requests. Voice uses the
+exact displayed backend snapshot; browser-combined ML/points lists retain factual
+fallback until an equivalent backend ranking is published. Live Databricks evidence,
+device microphone/playback QA, final 3D acceptance and provider summaries remain
+owner work. Implemented local routes and automated tests do not establish a completed
+production or clinical system.
 
 ## Where each owner starts
 
@@ -57,7 +74,8 @@ Repository layout:
 src/hf_followup/      Shared Python domain, ingest, API, ML and storage boundaries
 frontend/            React/TypeScript starter and engineer-owned anatomy interface
 contracts/           OpenAPI, generated frontend types and safe patient example
-scripts/             Local validation, split preparation and schema export entry points
+scripts/             Frozen training, publication, batch prediction and schema exports
+configs/             Frozen ML selections; generated pipelines stay ignored
 databricks/          Notebook skeletons, capabilities template and Delta table reference
 tests/               Implemented numerical/schema/API boundary checks
 docs/                PRD, case brief, architecture and team handoff

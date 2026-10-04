@@ -17,9 +17,13 @@ from hf_followup.api.schemas import (
     CohortRead,
     ComparisonRequest,
     ContextRequest,
+    ModelsRead,
     MutationResult,
     OverrideRequest,
+    PatientCreateRequest,
+    PatientDeleteRequest,
     PatientRead,
+    PatientUpdateRequest,
     ResetRequest,
     Snapshot,
     SnapshotRequest,
@@ -34,7 +38,9 @@ from hf_followup.api.schemas import (
 from hf_followup.config import Settings
 from hf_followup.data.ingest import ingest_csv
 from hf_followup.domain.errors import DomainError
+from hf_followup.domain.predictions import ModelRisks
 from hf_followup.evaluation.benchmark import case_benchmark
+from hf_followup.repositories.predictions import load_prediction_bundle
 from hf_followup.services.application import ApplicationService
 from hf_followup.services.voice import VoiceService
 
@@ -71,10 +77,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # after aggregate evaluation and are never supplied to the service or tools.
         ingestion = ingest_csv(settings.root / "data/heart_failure_clinical_records.csv")
         report = case_benchmark(ingestion.cohort, ingestion.outcomes)
-
+        predictions = load_prediction_bundle(settings.model_bundle_dir, ingestion.cohort)
         repo, repo_mode = _create_repository(settings)
         app.state.repo_mode = repo_mode
-        app.state.service = ApplicationService(ingestion.cohort, report, settings, repository=repo)
+        app.state.service = ApplicationService(
+            ingestion.cohort, report, settings, predictions, repository=repo
+        )
         del ingestion  # Release evaluator labels before the application starts serving requests.
         async with httpx.AsyncClient(timeout=10, follow_redirects=False) as voice_client:
             app.state.voice = VoiceService(settings, app.state.service, voice_client)
@@ -84,7 +92,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.origins,
-        allow_methods=["GET", "POST", "PATCH"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        # Patient CRUD needs PUT/DELETE; scoped voice evidence uses Authorization.
         allow_headers=["Content-Type", "Authorization"],
     )
 
@@ -124,13 +133,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ------------------------------------------------------------------
 
     @app.get(prefix + "/health")
-    def health(request: Request):
+    def health(request: Request, svc=Depends(service)):
         return {
             "core": "ready",
             "mode": request.app.state.repo_mode,
             "databricks": "connected" if request.app.state.repo_mode == "databricks" else "not_connected",
             "voice": "configured" if request.app.state.voice.configured else "not_configured",
             "persistence": request.app.state.repo_mode,
+            "ml": "frozen_cache_ready" if svc.prediction_bundle else "not_published",
+            "model_bundle_id": svc.prediction_bundle.manifest["bundle_id"]
+            if svc.prediction_bundle
+            else None,
         }
 
     # ------------------------------------------------------------------
@@ -141,7 +154,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def cohort(svc=Depends(service)):
         return svc.cohort_read()
 
-    @app.get(prefix + "/models")
+    @app.get(prefix + "/models", response_model=ModelsRead)
     def models(svc=Depends(service)):
         return svc.models()
 
@@ -149,9 +162,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def snapshot(snapshot_id: str, svc=Depends(service)):
         return svc.snapshot(snapshot_id)
 
+    # Patient CRUD — POST must be registered before GET {patient_id} so
+    # FastAPI doesn't try to match "patients" as a path parameter.
+    @app.post(prefix + "/patients")
+    def add_patient(body: PatientCreateRequest, svc=Depends(service)):
+        facts = {
+            "age": body.age,
+            "anaemia": body.anaemia,
+            "creatinine_phosphokinase": body.creatinine_phosphokinase,
+            "diabetes": body.diabetes,
+            "ejection_fraction": body.ejection_fraction,
+            "high_blood_pressure": body.high_blood_pressure,
+            "platelets": body.platelets,
+            "serum_creatinine": body.serum_creatinine,
+            "serum_sodium": body.serum_sodium,
+            "sex": body.sex,
+            "smoking": body.smoking,
+        }
+        return svc.add_patient(body.command_id, body.expected_revision, facts)
+
     @app.get(prefix + "/patients/{patient_id}", response_model=PatientRead)
     def patient(patient_id: str, snapshot_id: str = Query(max_length=100), svc=Depends(service)):
         return svc.patient(patient_id, snapshot_id)
+
+    @app.get(prefix + "/patients/{patient_id}/risks", response_model=ModelRisks)
+    def patient_risks(
+        patient_id: str, snapshot_id: str = Query(max_length=100), svc=Depends(service)
+    ):
+        risks = svc.patient(patient_id, snapshot_id)["model_risks"]
+        if risks is None:
+            raise DomainError(
+                "model_unavailable",
+                "Publish the frozen models with make publish-models or make train first.",
+                503,
+            )
+        return risks
 
     @app.post(prefix + "/patients/{patient_id}/summary", response_model=Summary)
     def summary(patient_id: str, body: SummaryRequest, svc=Depends(service)):
@@ -191,6 +236,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return svc.apply_override(
             body.command_id, body.expected_revision,
             body.patient_id, body.action, body.reason, body.session_id,
+        )
+
+    @app.put(prefix + "/patients/{patient_id}")
+    def update_patient(patient_id: str, body: PatientUpdateRequest, svc=Depends(service)):
+        updates = {
+            k: v for k, v in {
+                "age": body.age,
+                "anaemia": body.anaemia,
+                "creatinine_phosphokinase": body.creatinine_phosphokinase,
+                "diabetes": body.diabetes,
+                "ejection_fraction": body.ejection_fraction,
+                "high_blood_pressure": body.high_blood_pressure,
+                "platelets": body.platelets,
+                "serum_creatinine": body.serum_creatinine,
+                "serum_sodium": body.serum_sodium,
+                "sex": body.sex,
+                "smoking": body.smoking,
+            }.items() if v is not None
+        }
+        if not updates:
+            raise DomainError("no_updates", "No fields to update.", 422)
+        return svc.update_patient(body.command_id, body.expected_revision, patient_id, updates)
+
+    @app.delete(prefix + "/patients/{patient_id}")
+    def delete_patient(patient_id: str, body: PatientDeleteRequest, svc=Depends(service)):
+        return svc.delete_patient(
+            body.command_id, body.expected_revision, patient_id, body.reason,
         )
 
     @app.post(prefix + "/sessions/reset")

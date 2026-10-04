@@ -108,9 +108,25 @@ def test_read_tools_match_snapshot_and_never_mutate(client):
         elif name == "get_patient":
             read = client.get("/api/v1/patients/HF-0001", params={"snapshot_id": body["snapshot_id"]}).json()
             assert value["patient"] == read
+            assert value["risk_outputs_status"] == "not_published"
         elif name == "preview_heart_weight":
             assert value["operational_change_applied"] is False
     assert client.get("/api/v1/cohorts/current").json() == before
+
+
+@pytest.mark.parametrize("method", ["POST", "PUT", "DELETE"])
+def test_cors_keeps_patient_mutations_and_voice_authorization(client, method):
+    response = client.options(
+        "/api/v1/patients/HF-0001",
+        headers={
+            "Access-Control-Request-Method": method,
+            "Access-Control-Request-Headers": "content-type,authorization",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == ORIGIN
+    assert method in response.headers["access-control-allow-methods"]
+    assert "authorization" in response.headers["access-control-allow-headers"].lower()
 
 
 def test_tool_auth_allowlist_context_and_argument_validation(client):

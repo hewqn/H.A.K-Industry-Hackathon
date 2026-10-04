@@ -38,8 +38,10 @@ medicines and contacts are unavailable; the agent must say so.
 The browser injects the displayed snapshot and rejects contradictory agent arguments.
 The API allows only the five read tools with a scoped, expiring token. Selecting a
 patient tears down the conversation and transcript; reconnect for the new patient.
-Fallback CSV rankings do not have backend snapshot identity, so voice is disabled
-there while labelled local factual shortcuts remain available.
+Fallback CSV and browser-combined ML/points rankings do not have a matching backend
+snapshot identity, so voice is disabled there while labelled local factual shortcuts
+remain available. Exact model, oldest-first, and backend points snapshots retain
+voice context. Published patient evidence includes all three frozen ML outputs.
 
 ## Primary integration references
 

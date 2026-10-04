@@ -48,7 +48,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsRead"
+                }
               }
             }
           }
@@ -78,6 +80,42 @@
                 "schema": {
                   "$ref": "#/components/schemas/Snapshot"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/patients": {
+      "post": {
+        "summary": "Add Patient",
+        "operationId": "add_patient_api_v1_patients_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -126,6 +164,145 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PatientRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Patient",
+        "operationId": "update_patient_api_v1_patients__patient_id__put",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Patient Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Patient",
+        "operationId": "delete_patient_api_v1_patients__patient_id__delete",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Patient Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientDeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/patients/{patient_id}/risks": {
+      "get": {
+        "summary": "Patient Risks",
+        "operationId": "patient_risks_api_v1_patients__patient_id__risks_get",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Patient Id"
+            }
+          },
+          {
+            "name": "snapshot_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelRisks"
                 }
               }
             }
@@ -919,6 +1096,176 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MethodRead": {
+        "properties": {
+          "method_id": {
+            "type": "string",
+            "title": "Method Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "score_kind": {
+            "type": "string",
+            "title": "Score Kind"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method_id",
+          "label",
+          "score_kind",
+          "available"
+        ],
+        "title": "MethodRead"
+      },
+      "ModelDescriptor": {
+        "properties": {
+          "family": {
+            "type": "string",
+            "enum": [
+              "logistic_regression",
+              "random_forest",
+              "gradient_boosting"
+            ],
+            "title": "Family"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "classification_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Classification Threshold"
+          },
+          "band_cutoffs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Band Cutoffs"
+          },
+          "explanation_method": {
+            "type": "string",
+            "title": "Explanation Method"
+          },
+          "calibration_status": {
+            "type": "string",
+            "const": "not_calibrated",
+            "title": "Calibration Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "model_version",
+          "features",
+          "classification_threshold",
+          "band_cutoffs",
+          "explanation_method",
+          "calibration_status"
+        ],
+        "title": "ModelDescriptor"
+      },
+      "ModelRisks": {
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^hf-[0-9a-f]{20}$",
+            "title": "Bundle Id"
+          },
+          "heart_risk": {
+            "$ref": "#/components/schemas/RiskEstimate"
+          },
+          "kidney_risk": {
+            "$ref": "#/components/schemas/RiskEstimate"
+          },
+          "patient_risk": {
+            "$ref": "#/components/schemas/RiskEstimate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bundle_id",
+          "heart_risk",
+          "kidney_risk",
+          "patient_risk"
+        ],
+        "title": "ModelRisks"
+      },
+      "ModelsRead": {
+        "properties": {
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/MethodRead"
+            },
+            "type": "array",
+            "title": "Methods"
+          },
+          "reports": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Reports"
+          },
+          "supervised_status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_published"
+            ],
+            "title": "Supervised Status"
+          },
+          "bundle_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle Id"
+          },
+          "selected_models": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ModelDescriptor"
+            },
+            "propertyNames": {
+              "enum": [
+                "heart_risk",
+                "kidney_risk",
+                "patient_risk"
+              ]
+            },
+            "type": "object",
+            "title": "Selected Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "methods",
+          "reports",
+          "supervised_status",
+          "bundle_id",
+          "selected_models"
+        ],
+        "title": "ModelsRead"
+      },
       "MutationResult": {
         "properties": {
           "snapshot": {
@@ -1101,6 +1448,119 @@
         ],
         "title": "OverrideRequest"
       },
+      "PatientCreateRequest": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Command Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "age": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Age"
+          },
+          "anaemia": {
+            "type": "boolean",
+            "title": "Anaemia"
+          },
+          "creatinine_phosphokinase": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Creatinine Phosphokinase"
+          },
+          "diabetes": {
+            "type": "boolean",
+            "title": "Diabetes"
+          },
+          "ejection_fraction": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Ejection Fraction"
+          },
+          "high_blood_pressure": {
+            "type": "boolean",
+            "title": "High Blood Pressure"
+          },
+          "platelets": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Platelets"
+          },
+          "serum_creatinine": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Serum Creatinine"
+          },
+          "serum_sodium": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Serum Sodium"
+          },
+          "sex": {
+            "type": "boolean",
+            "title": "Sex"
+          },
+          "smoking": {
+            "type": "boolean",
+            "title": "Smoking"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "expected_revision",
+          "age",
+          "anaemia",
+          "creatinine_phosphokinase",
+          "diabetes",
+          "ejection_fraction",
+          "high_blood_pressure",
+          "platelets",
+          "serum_creatinine",
+          "serum_sodium",
+          "sex",
+          "smoking"
+        ],
+        "title": "PatientCreateRequest"
+      },
+      "PatientDeleteRequest": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Command Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "expected_revision",
+          "reason"
+        ],
+        "title": "PatientDeleteRequest"
+      },
       "PatientRead": {
         "properties": {
           "patient_id": {
@@ -1203,6 +1663,16 @@
           },
           "summary": {
             "$ref": "#/components/schemas/Summary"
+          },
+          "model_risks": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelRisks"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1229,6 +1699,156 @@
           "summary"
         ],
         "title": "PatientRead"
+      },
+      "PatientUpdateRequest": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Command Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "anaemia": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anaemia"
+          },
+          "creatinine_phosphokinase": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creatinine Phosphokinase"
+          },
+          "diabetes": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diabetes"
+          },
+          "ejection_fraction": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ejection Fraction"
+          },
+          "high_blood_pressure": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High Blood Pressure"
+          },
+          "platelets": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platelets"
+          },
+          "serum_creatinine": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serum Creatinine"
+          },
+          "serum_sodium": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serum Sodium"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sex"
+          },
+          "smoking": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smoking"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "expected_revision"
+        ],
+        "title": "PatientUpdateRequest"
       },
       "QueueRow": {
         "properties": {
@@ -1320,6 +1940,176 @@
           "reason"
         ],
         "title": "ResetRequest"
+      },
+      "RiskEstimate": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score"
+          },
+          "band": {
+            "type": "string",
+            "enum": [
+              "lower",
+              "middle",
+              "higher"
+            ],
+            "title": "Band"
+          },
+          "classification_positive": {
+            "type": "boolean",
+            "title": "Classification Positive"
+          },
+          "classification_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Classification Threshold"
+          },
+          "model_family": {
+            "type": "string",
+            "enum": [
+              "logistic_regression",
+              "random_forest",
+              "gradient_boosting"
+            ],
+            "title": "Model Family"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "score_kind": {
+            "type": "string",
+            "const": "model_output",
+            "title": "Score Kind",
+            "default": "model_output"
+          },
+          "calibration_status": {
+            "type": "string",
+            "const": "not_calibrated",
+            "title": "Calibration Status",
+            "default": "not_calibrated"
+          },
+          "prediction_provenance": {
+            "type": "string",
+            "enum": [
+              "development_in_sample",
+              "held_out_test",
+              "new_patient_inference"
+            ],
+            "title": "Prediction Provenance"
+          },
+          "explanation_method": {
+            "type": "string",
+            "enum": [
+              "linear_log_odds",
+              "recorded_features_no_local_attribution"
+            ],
+            "title": "Explanation Method"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/RiskEvidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "intercept": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intercept"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score",
+          "band",
+          "classification_positive",
+          "classification_threshold",
+          "model_family",
+          "model_version",
+          "prediction_provenance",
+          "explanation_method",
+          "evidence"
+        ],
+        "title": "RiskEstimate"
+      },
+      "RiskEvidence": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "predicate": {
+            "type": "string",
+            "title": "Predicate"
+          },
+          "scale": {
+            "type": "string",
+            "enum": [
+              "log_odds",
+              "recorded_measurement"
+            ],
+            "title": "Scale"
+          },
+          "contribution": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "field",
+          "value",
+          "predicate",
+          "scale"
+        ],
+        "title": "RiskEvidence"
       },
       "Score": {
         "properties": {
@@ -1485,6 +2275,17 @@
           "sync_mode": {
             "type": "string",
             "title": "Sync Mode"
+          },
+          "model_bundle_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Bundle Id"
           }
         },
         "type": "object",

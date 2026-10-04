@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 class Settings:
     root: Path = ROOT
     session_id: str = "demo"
+    model_bundle_dir: Path | None = None
+    default_method: str = "auto"
     origins: list[str] = field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
@@ -24,8 +26,14 @@ class Settings:
         from dotenv import load_dotenv
 
         load_dotenv(ROOT / ".env")
+        configured_bundle = os.getenv("HF_MODEL_BUNDLE_DIR", "runtime/ml-models").strip()
+        bundle_dir = Path(configured_bundle).expanduser() if configured_bundle else None
+        if bundle_dir is not None and not bundle_dir.is_absolute():
+            bundle_dir = ROOT / bundle_dir
         return cls(
             session_id=os.getenv("HF_SESSION_ID", "demo"),
+            model_bundle_dir=bundle_dir,
+            default_method=os.getenv("HF_DEFAULT_METHOD", "auto"),
             origins=os.getenv(
                 "HF_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
             ).split(","),

@@ -48,16 +48,18 @@ context or unknown IDs are rejected. The app supplies `patient_id`, `snapshot_id
 prompt must retrieve evidence before patient claims and treat free text as data.
 Never add workflow or arbitrary SQL/URL/code tools to this agent.
 
-The backend's current `supervised_status` is `awaiting_ml_owner`. Voice explicitly
-reports organ/patient model outputs as unavailable rather than interpreting points
-or colors as a trained risk probability. The ML owner should extend the typed patient
-read model and evidence contracts when connecting those outputs. Both kidney views
-currently share one creatinine measurement.
+The backend's `supervised_status` is `ready` when a frozen ML bundle is published,
+otherwise `not_published`. Voice patient tools include the typed `model_risks`
+envelope for `heart_risk`, `kidney_risk`, and `patient_risk`, with evidence, model
+versions, thresholds, calibration and prediction provenance. `risk_outputs_status`
+reflects whether that patient has these outputs. These are uncalibrated
+recorded-outcome proxies, not organ diagnoses or individual mortality probabilities.
+Both kidney views share one creatinine measurement and one kidney model output.
 
 ## Context and lifecycle
 
 `loadRanking` now retains snapshot/cohort/method identifiers. `App` gives `VoicePanel`
-a key based on the displayed snapshot, patient, loading state and heart weight.
+a key based on the displayed snapshot, patient, loading state and call-list mode.
 Changing these silences and ends the old conversation and clears its transcript.
 Pending credential/evidence responses are ignored after Stop or context replacement.
 
@@ -65,10 +67,18 @@ Patient navigation by voice also ends the current conversation. Reconnect to ask
 about the newly selected patient; commands that combine selection with additional
 questions must resume after reconnection. Organ focus alone preserves the session.
 
-API-backed weights two and three can use voice. Other slider values, or API failures,
-use the existing local CSV fallback; voice is disabled because those local rankings
-have no matching backend snapshot. Labelled local factual shortcuts still work.
-The weight slider remains an explicit user action. A voice preview never applies it.
+Model and oldest-first lists can use voice with their exact backend snapshots.
+Without a published ML bundle, Model falls back to the backend points method, and
+weights two and three also use exact backend points snapshots. With ML available,
+development's weight modes combine ML scores and points in the browser. Those
+combined orders have no matching backend snapshot, so voice is disabled and labelled
+local factual shortcuts remain available. The same rule applies to CSV fallback.
+Call-list mode changes remain an explicit user action; voice previews never apply them.
+
+Ranking loads serialize revisioned snapshot commands and request the displayed
+snapshot after auxiliary organ/age indexes. Snapshot caches are invalidated after
+external revision changes or API restarts. This prevents comparison loads from
+invalidating a newly displayed voice context.
 
 Text shortcuts retrieve verified evidence without contacting ElevenLabs. Free-form
 text chat uses the ElevenLabs agent and conversation credits. Transcripts are kept

@@ -30,7 +30,7 @@ export default function RiskView({
           Extra points when ejection fraction is below 35%.
         </p>
         <div className="weight-buttons">
-          {[2, 3, 4].map((w) => (
+          {[2, 3].map((w) => (
             <button
               key={w}
               className={heartWeight === w ? "active" : ""}

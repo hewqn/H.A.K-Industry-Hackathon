@@ -8,12 +8,16 @@ import { getOrganLook, type ColorMode } from "../utils/organColors";
 function applyMeshTint(
   material: THREE.Material,
   tint: THREE.Color,
-  amount: number
+  amount: number,
+  wash: number,
+  stain: number,
 ) {
   if (!material.userData.tintUniforms) {
     const uniforms = {
       uTint: { value: tint.clone() },
       uTintAmount: { value: amount },
+      uWash: { value: wash },
+      uStain: { value: stain },
     };
     material.userData.tintUniforms = uniforms;
     const previous = material.onBeforeCompile;
@@ -21,12 +25,16 @@ function applyMeshTint(
       previous?.call(material, shader, renderer);
       shader.uniforms.uTint = uniforms.uTint;
       shader.uniforms.uTintAmount = uniforms.uTintAmount;
+      shader.uniforms.uWash = uniforms.uWash;
+      shader.uniforms.uStain = uniforms.uStain;
       shader.fragmentShader =
-        "uniform vec3 uTint;\nuniform float uTintAmount;\n" +
+        "uniform vec3 uTint;\nuniform float uTintAmount;\nuniform float uWash;\nuniform float uStain;\n" +
         shader.fragmentShader.replace(
           "#include <color_fragment>",
           `#include <color_fragment>
-           diffuseColor.rgb = mix(diffuseColor.rgb, uTint, uTintAmount);`
+           float luma = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+           vec3 washed = mix(diffuseColor.rgb, vec3(luma), uTintAmount * uWash);
+           diffuseColor.rgb = mix(washed, uTint, uTintAmount * uStain);`
         );
     };
     material.needsUpdate = true;
@@ -35,6 +43,8 @@ function applyMeshTint(
 
   material.userData.tintUniforms.uTint.value.copy(tint);
   material.userData.tintUniforms.uTintAmount.value = amount;
+  material.userData.tintUniforms.uWash.value = wash;
+  material.userData.tintUniforms.uStain.value = stain;
 }
 
 interface OrganModelProps {
@@ -150,7 +160,8 @@ function paintOrgan(
   group: THREE.Group,
   organId: "heart" | "kidney",
   tint: THREE.Color,
-  amount: number
+  amount: number,
+  colorMode: ColorMode,
 ) {
   group.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return;
@@ -172,9 +183,15 @@ function paintOrgan(
       ) {
         material.emissive.copy(material.userData.baseEmissive);
       }
-      applyMeshTint(material, tint, amount);
-      if (organId === "kidney" && "roughness" in material) {
-        material.roughness = 2.7;
+      applyMeshTint(
+        material,
+        tint,
+        amount,
+        colorMode === "anatomy" ? 0.68 : 0,
+        colorMode === "anatomy" ? 0.7 : 1,
+      );
+      if ("roughness" in material) {
+        material.roughness = organId === "kidney" ? 0.88 + amount * 0.1 : 0.42 + amount * 0.38;
       }
       material.transparent = false;
       material.opacity = 1;
@@ -187,7 +204,7 @@ export default function OrganModel({
   organId,
   indicator,
   colorMode,
-  riskScore = 0,
+  riskScore,
   position = [0, 0, 0],
   scale = 1,
   onClick,
@@ -214,9 +231,9 @@ export default function OrganModel({
       colorMode,
       organId === "heart" ? "heart" : "kidney_left",
       indicator,
-      riskScore
+      riskScore,
     );
-    const nextKey = `${colorMode}:${indicator.value}:${riskScore.toFixed(3)}`;
+    const nextKey = `${colorMode}:${indicator.value}:${riskScore ?? "none"}`;
     targetTint.current.copy(look.tint);
     targetAmount.current = baseCompare ? 0 : look.amount;
 
@@ -224,7 +241,7 @@ export default function OrganModel({
       currentTint.current.copy(look.tint);
       currentAmount.current = targetAmount.current;
       lookKey.current = nextKey;
-      paintOrgan(baked.group, organId, look.tint, targetAmount.current);
+      paintOrgan(baked.group, organId, look.tint, targetAmount.current, colorMode);
       return;
     }
 
@@ -232,7 +249,7 @@ export default function OrganModel({
     if (lookKey.current !== nextKey) {
       currentAmount.current = 0;
       lookKey.current = nextKey;
-      paintOrgan(baked.group, organId, look.tint, 0);
+      paintOrgan(baked.group, organId, look.tint, 0, colorMode);
     }
   }, [baked, baseCompare, colorMode, indicator, organId, riskScore]);
 
@@ -261,7 +278,7 @@ export default function OrganModel({
       colorT
     );
 
-    paintOrgan(baked.group, organId, currentTint.current, currentAmount.current);
+    paintOrgan(baked.group, organId, currentTint.current, currentAmount.current, colorMode);
   });
 
   useLayoutEffect(() => {

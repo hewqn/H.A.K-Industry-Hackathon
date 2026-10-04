@@ -1,0 +1,15 @@
+{
+  "NEW-0001": {
+    "age": 75.0,
+    "anaemia": false,
+    "creatinine_phosphokinase": 582.0,
+    "diabetes": false,
+    "ejection_fraction": 20.0,
+    "high_blood_pressure": true,
+    "platelets": 265000.0,
+    "serum_creatinine": 1.9,
+    "serum_sodium": 130.0,
+    "sex": true,
+    "smoking": false
+  }
+}
