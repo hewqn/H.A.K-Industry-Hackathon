@@ -16,7 +16,9 @@ export interface Patient {
   oldest_rank: number;
   priority_band: PriorityBand;
   score: number;
-  score_kind: "points" | "model_output" | "age";
+  score_kind: "points" | "model_output" | "age" | "combined";
+  /** Pure ML rank (set when score_kind is "combined"). */
+  model_rank?: number;
   /** Frozen ML heart_risk / kidney_risk. Used only by Risk Score colour. */
   organ_risk?: {
     heart: number;

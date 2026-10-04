@@ -18,7 +18,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
   const [colorMode, setColorMode] = useState<ColorMode>("anatomy");
-  const [queueMode, setQueueMode] = useState<QueueMode>(2);
+  const [queueMode, setQueueMode] = useState<QueueMode>("model");
   const [caseReport, setCaseReport] = useState<CaseReportData | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [applyColour, setApplyColour] = useState({ heart: true, kidney: true });
@@ -172,6 +172,10 @@ export default function App() {
               ? "UCI cohort via API · frozen ML queue"
               : method === "oldest_first"
                 ? "UCI cohort via API · oldest first"
+              : method === "combined_w2"
+                ? "UCI cohort via API · ML + heart weight 2"
+                : method === "combined_w3"
+                  ? "UCI cohort via API · ML + heart weight 3"
               : method === "points_v1"
                 ? "UCI cohort via API · heart weight 2"
                 : method === "points_heart3"

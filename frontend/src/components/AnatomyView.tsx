@@ -24,21 +24,21 @@ export default function AnatomyView({
 
       <section className="weight-control">
         <div>
-          <h3>Heart weight</h3>
+          <h3>Call list</h3>
           <p className="weight-desc">
             {queueMode === "model"
-              ? "Model ranks the call list."
+              ? "ML model ranks by predicted risk."
               : queueMode === "oldest"
                 ? "Oldest first. The baseline to beat."
-                : `EF below 35% is worth ${queueMode} points.`}
+                : `ML base + heart weight ${queueMode}. EF below 35% is worth ${queueMode}.`}
           </p>
         </div>
-        <div className="weight-buttons" role="group" aria-label="Heart weight">
+        <div className="weight-buttons" role="group" aria-label="Call list mode">
           <button
-            className={queueMode === "oldest" ? "active" : ""}
-            onClick={() => onQueueModeChange("oldest")}
+            className={queueMode === "model" ? "active" : ""}
+            onClick={() => onQueueModeChange("model")}
           >
-            Oldest
+            Model
           </button>
           {([2, 3] as const).map((w) => (
             <button
@@ -47,14 +47,14 @@ export default function AnatomyView({
               onClick={() => onQueueModeChange(w)}
               aria-label={`Heart weight ${w}`}
             >
-              {w}
+              Weight {w}
             </button>
           ))}
           <button
-            className={queueMode === "model" ? "active" : ""}
-            onClick={() => onQueueModeChange("model")}
+            className={queueMode === "oldest" ? "active" : ""}
+            onClick={() => onQueueModeChange("oldest")}
           >
-            Model
+            Oldest
           </button>
         </div>
       </section>

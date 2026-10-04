@@ -29,14 +29,14 @@ export default function ScoreOutput({
   return (
     <div className="score-strip">
       <div className="score-strip-head">
-        {patient.score_kind === "points" && (
+        {(patient.score_kind === "points" || patient.score_kind === "combined") && (
           <span className="score-metric">
             <span className="risk-score-number">{patient.score}</span>
-            <span className="risk-score-label">Score</span>
+            <span className="risk-score-label">{patient.score_kind === "combined" ? "Pts" : "Score"}</span>
           </span>
         )}
       </div>
-      {patient.score_kind === "points" && patient.evidence.length > 0 ? (
+      {(patient.score_kind === "points" || patient.score_kind === "combined") && patient.evidence.length > 0 ? (
         <div className="evidence-chips">
           {patient.evidence
             .filter((item) => item.points != null)

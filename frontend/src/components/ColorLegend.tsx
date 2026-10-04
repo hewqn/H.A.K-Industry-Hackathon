@@ -56,7 +56,8 @@ function heartWeightOf(queueMode: QueueMode): number {
 }
 
 function scoreLabel(patient: Patient): string | null {
-  if (patient.score_kind === "points") return String(patient.score);
+  if (patient.score_kind === "points" || patient.score_kind === "combined")
+    return String(patient.score);
   if (patient.score_kind === "model_output") return patient.score.toFixed(3);
   return null;
 }
@@ -70,14 +71,20 @@ function ScoreScale({
   patient?: Patient | null;
   compared: Patient | null;
 }) {
-  if (queueMode === "oldest" || patient == null || patient.score_kind === "age") {
+  if (
+    queueMode === "oldest" ||
+    patient == null ||
+    patient.score_kind === "age"
+  ) {
     return null;
   }
 
   const weight = heartWeightOf(queueMode);
   const position = scoreScalePosition(patient.score, patient.score_kind, weight);
   const previewPosition =
-    compared != null && compared.score_kind === patient.score_kind
+    compared != null &&
+    (compared.score_kind === patient.score_kind ||
+      (compared.score_kind === "combined" && patient.score_kind === "combined"))
       ? scoreScalePosition(compared.score, compared.score_kind, weight)
       : null;
 

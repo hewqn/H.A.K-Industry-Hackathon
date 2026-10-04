@@ -34,11 +34,12 @@ export function riskScalePosition(score: number, heartWeight = 2): number {
 
 export function scoreScalePosition(
   score: number,
-  kind: "points" | "model_output" | "age",
+  kind: "points" | "model_output" | "age" | "combined",
   heartWeight = 2,
 ): number {
   if (kind === "model_output") return clamp01(score);
-  if (kind === "points") return riskScalePosition(score, heartWeight);
+  if (kind === "points" || kind === "combined")
+    return riskScalePosition(score, heartWeight);
   return 0;
 }
 

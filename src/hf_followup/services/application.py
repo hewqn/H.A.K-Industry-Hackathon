@@ -77,11 +77,14 @@ class ApplicationService:
 
     def _apply_snapshot(self, payload: dict):
         """Rebuild a snapshot from its event payload."""
-        ranking = build_ranking(
-            self.cohort.features, self.workflow, self.overrides,
-            payload["method_id"], payload["capacity"], mode=payload.get("mode", "operational"),
-            predictions=self.predictions,
-        )
+        try:
+            ranking = build_ranking(
+                self.cohort.features, self.workflow, self.overrides,
+                payload["method_id"], payload["capacity"], mode=payload.get("mode", "operational"),
+                predictions=self.predictions,
+            )
+        except DomainError:
+            return  # skip snapshots whose method was removed
         snapshot = {
             **ranking,
             "snapshot_id": payload["snapshot_id"],

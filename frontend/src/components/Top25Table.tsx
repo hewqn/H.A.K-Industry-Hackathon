@@ -11,9 +11,9 @@ function patientNumber(id: string): string {
   return id.replace("HF-", "").replace(/^0+/, "");
 }
 
-function moveLabel(currentRank: number, mlRank?: number): string | null {
-  if (mlRank == null) return null;
-  const delta = mlRank - currentRank;
+function moveLabel(currentRank: number, compareRank?: number): string | null {
+  if (compareRank == null) return null;
+  const delta = compareRank - currentRank;
   if (delta === 0) return "0";
   return delta > 0 ? `+${delta}` : String(delta);
 }
@@ -39,9 +39,13 @@ export default function Top25Table({
   onPreview,
 }: Top25TableProps) {
   const top25 = patients.slice(0, 25);
-  const showMove = top25.some(
-    (patient) => patient.score_kind === "points" && patient.oldest_rank != null,
-  );
+  const isCombined = top25.some((p) => p.score_kind === "combined");
+  const showMove = isCombined
+    ? top25.some((p) => p.model_rank != null)
+    : top25.some(
+        (p) => p.score_kind === "points" && p.oldest_rank != null,
+      );
+  const moveHeader = isCombined ? "vs Model" : "vs Oldest";
 
   return (
     <aside className="queue-panel">
@@ -58,7 +62,7 @@ export default function Top25Table({
                 <th>Cr</th>
                 <th>Age</th>
                 <th>Score</th>
-                {showMove && <th>vs Oldest</th>}
+                {showMove && <th>{moveHeader}</th>}
               </tr>
             </thead>
           </table>
@@ -70,7 +74,12 @@ export default function Top25Table({
               {top25.map((patient, index) => {
                 const selected = patient.patient_id === selectedId;
                 const currentRank = index + 1;
-                const move = showMove ? moveLabel(currentRank, patient.oldest_rank) : null;
+                const move = showMove
+                  ? moveLabel(
+                      currentRank,
+                      isCombined ? patient.model_rank : patient.oldest_rank,
+                    )
+                  : null;
                 const rose = move != null && move.startsWith("+");
                 const fell = move != null && move.startsWith("-");
                 return (
