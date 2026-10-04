@@ -40,6 +40,38 @@ class ResetRequest(Command):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class PatientCreateRequest(Command):
+    age: float = Field(gt=0)
+    anaemia: bool
+    creatinine_phosphokinase: float = Field(ge=0)
+    diabetes: bool
+    ejection_fraction: float = Field(ge=0, le=100)
+    high_blood_pressure: bool
+    platelets: float = Field(ge=0)
+    serum_creatinine: float = Field(gt=0)
+    serum_sodium: float = Field(gt=0)
+    sex: bool
+    smoking: bool
+
+
+class PatientUpdateRequest(Command):
+    age: float | None = Field(default=None, gt=0)
+    anaemia: bool | None = None
+    creatinine_phosphokinase: float | None = Field(default=None, ge=0)
+    diabetes: bool | None = None
+    ejection_fraction: float | None = Field(default=None, ge=0, le=100)
+    high_blood_pressure: bool | None = None
+    platelets: float | None = Field(default=None, ge=0)
+    serum_creatinine: float | None = Field(default=None, gt=0)
+    serum_sodium: float | None = Field(default=None, gt=0)
+    sex: bool | None = None
+    smoking: bool | None = None
+
+
+class PatientDeleteRequest(Command):
+    reason: str = Field(min_length=1, max_length=1000)
+
+
 class ContextRequest(Request):
     snapshot_id: str = Field(max_length=100)
     patient_id: str | None = Field(default=None, pattern=r"^HF-\d{4}$")

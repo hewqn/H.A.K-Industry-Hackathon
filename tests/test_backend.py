@@ -4,7 +4,6 @@ Uses in-memory mode (no Databricks/SQLite) so tests run anywhere.
 """
 
 import csv
-import hashlib
 import io
 import uuid
 from unittest.mock import patch
@@ -13,7 +12,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hf_followup.api.main import create_app
-from hf_followup.config import ROOT
 
 
 def _cmd(revision=0):
@@ -21,17 +19,9 @@ def _cmd(revision=0):
     return {"command_id": str(uuid.uuid4()), "expected_revision": revision}
 
 
-# Compute the actual hash of the CSV on this machine so the hash check passes
-# regardless of line endings (Windows CRLF vs Unix LF).
-_ACTUAL_HASH = hashlib.sha256(
-    (ROOT / "data/heart_failure_clinical_records.csv").read_bytes()
-).hexdigest()
-
-
 @pytest.fixture()
 def client():
-    with patch("hf_followup.data.ingest.SOURCE_HASH", _ACTUAL_HASH), \
-         patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
+    with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
         with TestClient(create_app()) as c:
             yield c
 
@@ -315,8 +305,7 @@ class TestAuditEvents:
         from hf_followup.repositories.sqlite import SQLiteRepository
 
         repo = SQLiteRepository(tmp_path / "audit.db")
-        with patch("hf_followup.data.ingest.SOURCE_HASH", _ACTUAL_HASH), \
-             patch("hf_followup.api.main._create_repository", return_value=(repo, "sqlite")):
+        with patch("hf_followup.api.main._create_repository", return_value=(repo, "sqlite")):
             with TestClient(create_app()) as c:
                 c.patch("/api/v1/patients/HF-0001/workflow", json={
                     **_cmd(0), "state": "reviewed",
@@ -382,6 +371,117 @@ class TestVoiceStill503:
 # ------------------------------------------------------------------
 # Existing contract still works
 # ------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------
+# Patient CRUD
+# ------------------------------------------------------------------
+
+
+class TestPatientCRUD:
+    _SAMPLE_PATIENT = {
+        "age": 55,
+        "anaemia": False,
+        "creatinine_phosphokinase": 200,
+        "diabetes": True,
+        "ejection_fraction": 40,
+        "high_blood_pressure": False,
+        "platelets": 250000,
+        "serum_creatinine": 1.2,
+        "serum_sodium": 137,
+        "sex": True,
+        "smoking": False,
+    }
+
+    def test_add_patient(self, client):
+        resp = client.post("/api/v1/patients", json={
+            **_cmd(0), **self._SAMPLE_PATIENT,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["patient_id"] == "HF-0300"
+        assert data["facts"]["age"] == 55
+
+    def test_add_patient_appears_in_cohort(self, client):
+        client.post("/api/v1/patients", json={
+            **_cmd(0), **self._SAMPLE_PATIENT,
+        })
+        cohort = client.get("/api/v1/cohorts/current").json()
+        assert "HF-0300" in cohort["accepted_ids"]
+        assert cohort["accepted_count"] == 300
+
+    def test_update_patient(self, client):
+        resp = client.put("/api/v1/patients/HF-0001", json={
+            **_cmd(0), "age": 80,
+        })
+        assert resp.status_code == 200
+        assert resp.json()["facts"]["age"] == 80
+
+    def test_update_preserves_other_fields(self, client):
+        resp = client.put("/api/v1/patients/HF-0001", json={
+            **_cmd(0), "age": 80,
+        })
+        facts = resp.json()["facts"]
+        assert facts["ejection_fraction"] == 20
+        assert facts["serum_creatinine"] == 1.9
+
+    def test_update_nonexistent_patient(self, client):
+        resp = client.put("/api/v1/patients/HF-9999", json={
+            **_cmd(0), "age": 50,
+        })
+        assert resp.status_code == 404
+
+    def test_update_no_fields(self, client):
+        resp = client.put("/api/v1/patients/HF-0001", json=_cmd(0))
+        assert resp.status_code == 422
+
+    def test_delete_patient(self, client):
+        resp = client.request("DELETE", "/api/v1/patients/HF-0001", json={
+            **_cmd(0), "reason": "Duplicate record",
+        })
+        assert resp.status_code == 200
+        cohort = client.get("/api/v1/cohorts/current").json()
+        assert "HF-0001" not in cohort["accepted_ids"]
+        assert cohort["accepted_count"] == 298
+
+    def test_delete_nonexistent_patient(self, client):
+        resp = client.request("DELETE", "/api/v1/patients/HF-9999", json={
+            **_cmd(0), "reason": "Cleanup",
+        })
+        assert resp.status_code == 404
+
+    def test_delete_clears_workflow_and_overrides(self, client):
+        # Set workflow state and override.
+        client.patch("/api/v1/patients/HF-0050/workflow", json={
+            **_cmd(0), "state": "reviewed",
+        })
+        client.post("/api/v1/overrides", json={
+            **_cmd(1),
+            "patient_id": "HF-0050",
+            "session_id": "demo",
+            "action": "pin",
+            "reason": "Testing",
+        })
+        # Delete patient.
+        resp = client.request("DELETE", "/api/v1/patients/HF-0050", json={
+            **_cmd(2), "reason": "Removed",
+        })
+        assert resp.status_code == 200
+
+    def test_add_then_snapshot_includes_new_patient(self, client):
+        client.post("/api/v1/patients", json={
+            **_cmd(0),
+            **self._SAMPLE_PATIENT,
+            "ejection_fraction": 10,
+            "serum_creatinine": 5.0,
+            "age": 90,
+        })
+        resp = client.post("/api/v1/ranking-snapshots", json={
+            **_cmd(1), "cohort_id": "uci-hf-299-v1",
+        })
+        rows = resp.json()["snapshot"]["rows"]
+        patient_ids = {r["patient_id"] for r in rows}
+        assert "HF-0300" in patient_ids
 
 
 class TestExistingContract:

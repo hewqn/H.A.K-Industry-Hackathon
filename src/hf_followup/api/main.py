@@ -19,7 +19,10 @@ from hf_followup.api.schemas import (
     ModelsRead,
     MutationResult,
     OverrideRequest,
+    PatientCreateRequest,
+    PatientDeleteRequest,
     PatientRead,
+    PatientUpdateRequest,
     ResetRequest,
     Snapshot,
     SnapshotRequest,
@@ -151,6 +154,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def snapshot(snapshot_id: str, svc=Depends(service)):
         return svc.snapshot(snapshot_id)
 
+    # Patient CRUD — POST must be registered before GET {patient_id} so
+    # FastAPI doesn't try to match "patients" as a path parameter.
+    @app.post(prefix + "/patients")
+    def add_patient(body: PatientCreateRequest, svc=Depends(service)):
+        facts = {
+            "age": body.age,
+            "anaemia": body.anaemia,
+            "creatinine_phosphokinase": body.creatinine_phosphokinase,
+            "diabetes": body.diabetes,
+            "ejection_fraction": body.ejection_fraction,
+            "high_blood_pressure": body.high_blood_pressure,
+            "platelets": body.platelets,
+            "serum_creatinine": body.serum_creatinine,
+            "serum_sodium": body.serum_sodium,
+            "sex": body.sex,
+            "smoking": body.smoking,
+        }
+        return svc.add_patient(body.command_id, body.expected_revision, facts)
+
     @app.get(prefix + "/patients/{patient_id}", response_model=PatientRead)
     def patient(patient_id: str, snapshot_id: str = Query(max_length=100), svc=Depends(service)):
         return svc.patient(patient_id, snapshot_id)
@@ -206,6 +228,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return svc.apply_override(
             body.command_id, body.expected_revision,
             body.patient_id, body.action, body.reason, body.session_id,
+        )
+
+    @app.post(prefix + "/patients")
+    def add_patient(body: PatientCreateRequest, svc=Depends(service)):
+        facts = {
+            "age": body.age,
+            "anaemia": body.anaemia,
+            "creatinine_phosphokinase": body.creatinine_phosphokinase,
+            "diabetes": body.diabetes,
+            "ejection_fraction": body.ejection_fraction,
+            "high_blood_pressure": body.high_blood_pressure,
+            "platelets": body.platelets,
+            "serum_creatinine": body.serum_creatinine,
+            "serum_sodium": body.serum_sodium,
+            "sex": body.sex,
+            "smoking": body.smoking,
+        }
+        return svc.add_patient(body.command_id, body.expected_revision, facts)
+
+    @app.put(prefix + "/patients/{patient_id}")
+    def update_patient(patient_id: str, body: PatientUpdateRequest, svc=Depends(service)):
+        updates = {
+            k: v for k, v in {
+                "age": body.age,
+                "anaemia": body.anaemia,
+                "creatinine_phosphokinase": body.creatinine_phosphokinase,
+                "diabetes": body.diabetes,
+                "ejection_fraction": body.ejection_fraction,
+                "high_blood_pressure": body.high_blood_pressure,
+                "platelets": body.platelets,
+                "serum_creatinine": body.serum_creatinine,
+                "serum_sodium": body.serum_sodium,
+                "sex": body.sex,
+                "smoking": body.smoking,
+            }.items() if v is not None
+        }
+        if not updates:
+            raise DomainError("no_updates", "No fields to update.", 422)
+        return svc.update_patient(body.command_id, body.expected_revision, patient_id, updates)
+
+    @app.delete(prefix + "/patients/{patient_id}")
+    def delete_patient(patient_id: str, body: PatientDeleteRequest, svc=Depends(service)):
+        return svc.delete_patient(
+            body.command_id, body.expected_revision, patient_id, body.reason,
         )
 
     @app.post(prefix + "/sessions/reset")
