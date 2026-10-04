@@ -18,6 +18,32 @@ an ignored local file, fill verified values/evidence, and choose one transport m
    come from a configured allowlist; values use native binding. App must not read raw
    records/outcome tables. Record whether isolation is permissions-enforced or logical.
 
+## Notebook import setup
+
+`hf_followup` is repository code under `src/hf_followup`, not a package that comes with
+Jupyter or Databricks. The training notebook's setup cell locates the repository and
+adds `src` to `sys.path` before importing it. Run the notebook from this checkout, or
+set `REPO_ROOT_OVERRIDE` to the absolute folder containing `src`, `data`, and
+`pyproject.toml`. The dataset path is derived from that folder.
+
+If you imported only `02_training.ipynb` into Databricks, also clone/upload the shared
+source and dataset. A notebook file alone cannot supply its imported modules. On
+serverless, set an explicit absolute repository path because the working directory is
+not guaranteed. [Databricks module/import documentation](https://docs.databricks.com/aws/en/files/workspace-modules).
+
+For local experimentation, install the package's ML dependencies into the active
+notebook kernel using a separate cell after the setup cell:
+
+```python
+%pip install -e "{REPO_ROOT}[ml]"
+```
+
+`%pip` installs in the active IPython kernel environment.
+[IPython magic documentation](https://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-pip).
+Restart the kernel if required and rerun from setup. On Databricks, check installed
+runtime/environment packages first and use supported environment settings to supply
+compatible missing ML dependencies; avoid blindly replacing its managed environment.
+
 ## Publication contract for ML owner
 
 Produce `model_metadata.json` (ID/version/run URI, feature order, source hash, seed,
