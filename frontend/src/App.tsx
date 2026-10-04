@@ -1,56 +1,131 @@
-import { useEffect, useState } from "react";
-import { api, type Cohort, type Models, type OrganId, type Patient, type Snapshot } from "./api/client";
-import { AnatomyViewer } from "./components/AnatomyViewer";
+import { useState, useEffect } from "react";
+import AnatomyViewer from "./components/AnatomyViewer";
+import AnatomyView from "./components/AnatomyView";
+import Top25Table from "./components/Top25Table";
+import ColorLegend from "./components/ColorLegend";
+import { parseCSV, rankPatients } from "./utils/scoring";
+import type { Patient, OrganId } from "./types/patient";
+import type { ColorMode } from "./utils/organColors";
+import "./App.css";
 
-/** Frontend owner's working layout and selection example, not the completed product.
- * TODO(FRONTEND): method/capacity controls, full-cohort search, workflow forms,
- * comparisons/history screens, CSV handoff, voice controls/transcript, and responsive QA.
- * Numerical logic belongs to the API. Keep one patient/snapshot state for every panel.
- */
-export function App() {
-  const [cohort, setCohort] = useState<Cohort | null>(null);
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [models, setModels] = useState<Models | null>(null);
-  const [patientId, setPatientId] = useState("");
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [organ, setOrgan] = useState<OrganId | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      try {
-        const current = await api<Cohort>("/cohorts/current", { signal: controller.signal });
-        const [ranking, methods] = await Promise.all([
-          api<Snapshot>(`/ranking-snapshots/${current.current_snapshot_id}`, { signal: controller.signal }),
-          api<Models>("/models", { signal: controller.signal }),
-        ]);
-        if (!controller.signal.aborted) { setCohort(current); setSnapshot(ranking); setModels(methods); setPatientId(ranking.queue[0].patient_id); }
-      } catch (error) { if (!controller.signal.aborted) setError((error as Error).message); }
-    }
-    void load(); return () => controller.abort();
-  }, []);
-  useEffect(() => {
-    setPatient(null); setOrgan(null);
-    if (!snapshot || !patientId) return;
-    const controller = new AbortController();
-    api<Patient>(`/patients/${patientId}?snapshot_id=${snapshot.snapshot_id}`, { signal: controller.signal }).then(value => {
-      // Cancel and check context before applying a delayed patient/summary response.
-      if (!controller.signal.aborted && value.patient_id === patientId && value.ranking_snapshot_id === snapshot.snapshot_id) setPatient(value);
-    }).catch(error => { if (!controller.signal.aborted) setError((error as Error).message); });
-    return () => controller.abort();
-  }, [patientId, snapshot]);
+export default function App() {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
+  const [colorMode, setColorMode] = useState<ColorMode>("risk");
+  const [heartWeight, setHeartWeight] = useState(2);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [applyColour, setApplyColour] = useState({ heart: true, kidney: true });
 
-  return <div className="app-shell">
-    <header><div><p className="eyebrow">Biomedical · Case 2 · Team development scaffold</p><h1>Heart-failure follow-up</h1><p>Local points queue and shared patient contract.</p></div><div className="mode-tag">In-memory starter<small>Database, ML, voice, and final 3D integrations are pending.</small></div></header>
-    {error && <p className="error-banner" role="alert">{error}. Start the API with <code>make api</code>.</p>}
-    {cohort && snapshot ? <><section className="toolbar"><div><strong>{cohort.accepted_count}</strong> accepted · {cohort.missing_rows} missing rows</div><div>Method: {snapshot.method_id}<small>Capacity: {snapshot.capacity} · {snapshot.tie_policy}</small></div><div className="snapshot-time">Snapshot {snapshot.snapshot_id.slice(0, 8)}<small>Preview only; not durable</small></div></section>
-      <main className="workspace"><aside className="patient-list"><h2>Default top 25</h2><div className="queue-scroll">{snapshot.queue.map(row => <button key={row.patient_id} className={`patient-row ${patientId === row.patient_id ? "selected" : ""}`} onClick={() => setPatientId(row.patient_id)}><span className="rank">{row.call_rank}</span><span><strong>{row.patient_id}</strong><small>{row.score.value} points · {row.priority_band} priority</small><small>EF {row.facts.ejection_fraction}% · Cr {row.facts.serum_creatinine} mg/dL</small><small>{row.reason}</small></span></button>)}</div></aside>
-        {patient ? <><AnatomyViewer patient_id={patient.patient_id} ranking_snapshot_id={patient.ranking_snapshot_id} indicator_policy_version={patient.indicator_policy_version} organs={patient.organs} focused_organ={organ} body_opacity={.15} reduced_motion={window.matchMedia("(prefers-reduced-motion: reduce)").matches} onOrganSelect={setOrgan} onReady={() => {}} onError={() => {}} />
-          <section className="patient-detail"><h2>{patient.patient_id}</h2><p>Method rank {patient.model_rank} · call rank {patient.call_rank ?? "outside queue"}</p><h3>Recorded measurements</h3><p>EF {patient.facts.ejection_fraction}% · serum creatinine {patient.facts.serum_creatinine} mg/dL · age {patient.facts.age}</p>{organ && <p className="focused-organ">{organ.replace("_", " ")}: {patient.organs[organ].label}</p>}<h3>Why this priority?</h3><ul>{patient.score.evidence.map(item => <li key={item.id}>{item.predicate} · +{item.points} points</li>)}</ul><h3>Factual overview · template</h3><p>{patient.summary.text}</p><details><summary>Frontend/API integration TODOs</summary><p>Connect workflow forms after backend persistence passes its tests. Add voice session controls and transcript. Extend method/capacity controls using versioned snapshots. See docs/development.md.</p></details></section>
-        </> : <p role="status">Loading selected patient…</p>}
+  useEffect(() => {
+    fetch("/data/heart_failure_clinical_records.csv")
+      .then((r) => r.text())
+      .then((text) => {
+        const rows = parseCSV(text);
+        const ranked = rankPatients(rows, heartWeight, 25);
+        setPatients(ranked);
+        if (ranked.length > 0 && !selectedId) {
+          setSelectedId(ranked[0].patient_id);
+        }
+      });
+  }, [heartWeight]);
+
+  const selected = patients.find((p) => p.patient_id === selectedId) ?? null;
+  const preview =
+    patients.find((p) => p.patient_id === previewId && p.patient_id !== selectedId) ??
+    null;
+
+  return (
+    <div className="app">
+      <nav className="topnav">
+        <div className="topnav-left">
+          <span className="logo">H.A.K The Heart Failure</span>
+        </div>
+      </nav>
+
+      <div className="legend-strip">
+        <div className="view-toggle" role="group" aria-label="How organs are coloured">
+          <button
+            className={colorMode === "risk" ? "active" : ""}
+            onClick={() => setColorMode("risk")}
+          >
+            Risk Score
+          </button>
+          <button
+            className={colorMode === "anatomy" ? "active" : ""}
+            onClick={() => setColorMode("anatomy")}
+          >
+            Tissue State
+          </button>
+        </div>
+        <ColorLegend
+          mode={colorMode}
+          patient={selected}
+          preview={preview}
+          base={!applyColour.heart && !applyColour.kidney}
+        />
+      </div>
+
+      <main className="main-content">
+        {selected ? (
+          <div className="workspace">
+            <div className="organ-viewer">
+              <AnatomyViewer
+                organs={selected.organs}
+                focusedOrgan={focusedOrgan}
+                onOrganSelect={setFocusedOrgan}
+                colorMode={colorMode}
+                organRisk={selected.organ_risk}
+                applyColour={applyColour}
+                onApplyColourChange={(organ, on) =>
+                  setApplyColour((current) => ({ ...current, [organ]: on }))
+                }
+              />
+            </div>
+            <div className="workspace-side">
+              <AnatomyView
+                key={selected.patient_id}
+                patient={selected}
+                focusedOrgan={focusedOrgan}
+                onOrganSelect={setFocusedOrgan}
+                heartWeight={heartWeight}
+                onHeartWeightChange={setHeartWeight}
+              />
+              <Top25Table
+                patients={patients}
+                selectedId={selected.patient_id}
+                onSelect={setSelectedId}
+                onPreview={setPreviewId}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="empty">Select a patient to begin</div>
+        )}
       </main>
-      {models && <section className="comparison-page"><h2>Descriptive benchmark reference</h2><p>Fixed historical cohort, N=299, K=25. Supervised CV and test reports are pending the ML owner's work.</p><div className="metric-cards">{Object.entries(models.reports.benchmark.metrics).map(([method, value]) => <article key={method}><h4>{method}</h4><strong>{value.captured_outcomes}/25</strong><p>Recorded outcomes captured</p></article>)}</div><p>Heart-only revision: {models.reports.benchmark.decision.replaceAll("_", " ")} · overlap {models.reports.benchmark.overlap_count}/25.</p></section>}
-    </> : <p role="status">Loading local cohort…</p>}
-    <footer>Public historical records · Follow-up prioritization prototype · No diagnoses or treatment recommendations</footer>
-  </div>;
+
+      <footer className="app-footer">
+        <span>
+          3D models: Heart by{" "}
+          <a
+            href="https://sketchfab.com/3d-models/human-heart-bc51630b88b94f5fb6bdaef1488041c3"
+            target="_blank"
+            rel="noreferrer"
+          >
+            sammite
+          </a>
+          , Kidneys by{" "}
+          <a
+            href="https://sketchfab.com/3d-models/human-kidney-e1476ceb1e3b4412af5418eee9c5ed08"
+            target="_blank"
+            rel="noreferrer"
+          >
+            neshallads
+          </a>{" "}
+          on Sketchfab
+        </span>
+        <span>UCI Heart Failure Clinical Records, CC BY 4.0</span>
+      </footer>
+    </div>
+  );
 }

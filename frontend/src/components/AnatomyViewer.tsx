@@ -1,61 +1,233 @@
-import { useEffect, useRef, useState } from "react";
-import type { OrganId, Patient } from "../api/client";
-import { mountAnatomy, type AnatomyHandle, type AssetManifest } from "../anatomy/adapter";
+import { Canvas, useThree } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useState } from "react";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import OrganModel from "./OrganModel";
+import type { OrganId, OrganIndicator } from "../types/patient";
+import type { ColorMode } from "../utils/organColors";
 
-// This is the handoff boundary for the 3D engineer. The app supplies interpreted
-// measurements and selection context; the engineer owns geometry and rendering.
-export interface AnatomyProps {
-  patient_id: string;
-  ranking_snapshot_id: string;
-  indicator_policy_version: string;
-  organs: Patient["organs"];
-  focused_organ: OrganId | null;
-  body_opacity: number;
-  reduced_motion: boolean;
-  onOrganSelect: (organ: OrganId) => void;
-  onReady: () => void;
-  onError: (code: string) => void;
+type OrganKey = "heart" | "kidney";
+
+interface AnatomyViewerProps {
+  organs: Record<OrganId, OrganIndicator>;
+  focusedOrgan: OrganId | null;
+  onOrganSelect: (organ: OrganId | null) => void;
+  colorMode?: ColorMode;
+  organRisk?: { heart: number; kidney: number };
+  applyColour?: { heart: boolean; kidney: boolean };
+  onApplyColourChange?: (organ: OrganKey, on: boolean) => void;
 }
 
-const colors = { flagged: "#B25454", not_flagged: "#6F889C", unknown: "#ADB3BB" };
+function FrameOrgan({ distance }: { distance: number }) {
+  const { camera, controls, invalidate } = useThree();
 
-/** No anatomy is generated here. An optional engineer-supplied GLB is loaded
- * through the adapter, or the engineer can replace that adapter with their viewer.
- * The text cards remain usable before asset delivery and after rendering failures.
- */
-export function AnatomyViewer(props: AnatomyProps) {
-  const host = useRef<HTMLDivElement>(null);
-  const latest = useRef(props); latest.current = props;
-  const viewer = useRef<AnatomyHandle | null>(null);
-  const [status, setStatus] = useState("Awaiting engineer-supplied anatomy asset");
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    let disposed = false;
-    async function initialize() {
-      try {
-        const response = await fetch("/assets/anatomy/manifest.json", { signal: controller.signal });
-        if (!response.ok) throw new Error("asset_manifest_unavailable");
-        const manifest: AssetManifest = await response.json();
-        if (!manifest.asset_url) return;
-        setStatus("Loading engineer-supplied anatomy…");
-        const handle = await mountAnatomy(host.current!, manifest, latest.current);
-        if (disposed) { handle.dispose(); return; }
-        viewer.current = handle; handle.update(latest.current); setReady(true); setStatus("Illustrative anatomy"); latest.current.onReady();
-      } catch (error) {
-        if (!disposed) { setStatus("Anatomy unavailable; recorded measurements remain below."); latest.current.onError((error as Error).message); }
-      }
+  useLayoutEffect(() => {
+    camera.position.set(0, 0, distance);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+
+    const orbit = controls as OrbitControlsImpl | null;
+    if (orbit) {
+      orbit.target.set(0, 0, 0);
+      orbit.update();
     }
-    void initialize();
-    return () => { disposed = true; controller.abort(); viewer.current?.dispose(); viewer.current = null; };
-  }, []);
-  useEffect(() => { viewer.current?.update(props); }, [props.organs, props.focused_organ, props.body_opacity]);
-  return <section className="anatomy" aria-label={`Recorded organ indicators for ${props.patient_id}`}>
-    <div className="section-title"><h2>Measurement indicators</h2><span className="tag">3D engineer handoff</span></div>
-    <div ref={host} className={`canvas-host ${ready ? "" : "awaiting-asset"}`} aria-hidden="true">{!ready && <div><strong>3D integration ready</strong><p>The anatomy engineer can connect an asset or viewer here.</p></div>}</div>
-    <p role="status" className="muted">{status}</p>
-    <div className="organ-buttons">{(["heart", "kidney_left", "kidney_right"] as OrganId[]).map(organ => <button key={organ} aria-pressed={props.focused_organ === organ} onClick={() => props.onOrganSelect(organ)}><span className="dot" style={{ background: colors[props.organs[organ].state] }} />{organ.replace("_", " ")}<small>{props.organs[organ].value ?? "Unknown"} {props.organs[organ].unit}</small></button>)}</div>
-    <button className="text-button" disabled={!ready} onClick={() => viewer.current?.resetCamera()}>Reset camera</button>
-    <p className="muted">Coral: prototype threshold crossed · Blue: threshold not crossed · Gray: unknown. EF &lt; 35%; creatinine &gt; 1.5 mg/dL. Colors represent measurement indicators.</p>
-  </section>;
+    invalidate();
+  }, [camera, controls, distance, invalidate]);
+
+  return null;
+}
+
+function OrganCanvas({
+  url,
+  organId,
+  indicator,
+  colorMode,
+  riskScore,
+  focused,
+  expanded,
+  hidden,
+  onSelect,
+  onToggleExpand,
+  label,
+  applyColour,
+  onApplyColourChange,
+}: {
+  url: string;
+  organId: OrganKey;
+  indicator: OrganIndicator;
+  colorMode: ColorMode;
+  riskScore: number;
+  focused: boolean;
+  expanded: boolean;
+  hidden: boolean;
+  onSelect: () => void;
+  onToggleExpand: () => void;
+  label: string;
+  applyColour: boolean;
+  onApplyColourChange: (on: boolean) => void;
+}) {
+  const [ready, setReady] = useState(false);
+  const distance = expanded ? 1.75 : 2.15;
+  const markReady = useCallback(() => setReady(true), []);
+
+  useEffect(() => {
+    setReady(false);
+  }, [expanded, url]);
+
+  return (
+    <div className={`organ-slot ${hidden ? "hidden" : ""}`}>
+      <div
+        className={`organ-viewport ${focused ? "focused" : ""} ${expanded ? "expanded" : ""}`}
+      >
+        <label className="organ-colour-check">
+          <input
+            type="checkbox"
+            checked={applyColour}
+            onChange={(event) => onApplyColourChange(event.target.checked)}
+          />
+          Show Tint
+        </label>
+        {!ready && (
+          <div className="organ-loader" role="status" aria-live="polite">
+            <span className="organ-spinner" />
+            <span>Loading {label.toLowerCase()}</span>
+          </div>
+        )}
+        <Canvas
+          key={`${organId}-${expanded ? "full" : "split"}`}
+          camera={{ position: [0, 0, distance], fov: 32 }}
+          dpr={[1, 1.5]}
+          gl={{ antialias: true, alpha: true }}
+        >
+          <color attach="background" args={["#f8f9fb"]} />
+          <hemisphereLight args={["#f8f9fb", "#eef0f4", 0.8]} />
+          <ambientLight intensity={0.65} />
+          <directionalLight position={[3, 5, 6]} intensity={1.2} />
+          <directionalLight position={[-4, 1, 2]} intensity={0.28} />
+
+          <Suspense fallback={null}>
+            <OrganModel
+              url={url}
+              organId={organId}
+              indicator={indicator}
+              colorMode={colorMode}
+              riskScore={riskScore}
+              position={[0, 0, 0]}
+              scale={1}
+              onClick={onSelect}
+              focused={focused}
+              onReady={markReady}
+              baseCompare={!applyColour}
+            />
+          </Suspense>
+
+          <OrbitControls
+            enablePan={false}
+            target={[0, 0, 0]}
+            minDistance={1.1}
+            maxDistance={5}
+            makeDefault
+          />
+          <FrameOrgan distance={distance} />
+        </Canvas>
+
+        <button
+          type="button"
+          className="viewport-expand"
+          onClick={onToggleExpand}
+          aria-label={expanded ? `Minimize ${label}` : `Expand ${label}`}
+          title={expanded ? "Minimize" : "Expand"}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d={
+                expanded
+                  ? "M3 6h3V3M13 6h-3V3M3 10h3v3M13 10h-3v3"
+                  : "M6 3H3v3M10 3h3v3M3 10v3h3M13 10v3h-3"
+              }
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function AnatomyViewer({
+  organs,
+  focusedOrgan,
+  onOrganSelect,
+  colorMode = "anatomy",
+  organRisk = { heart: 0, kidney: 0 },
+  applyColour = { heart: true, kidney: true },
+  onApplyColourChange,
+}: AnatomyViewerProps) {
+  const [expanded, setExpanded] = useState<OrganKey | null>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [expanded]);
+
+  return (
+    <div className={`anatomy-canvas ${expanded ? "has-expanded" : ""}`}>
+      <OrganCanvas
+        url="/models/human_heart.glb"
+        organId="heart"
+        indicator={organs.heart}
+        colorMode={colorMode}
+        riskScore={organRisk.heart}
+        focused={focusedOrgan === "heart"}
+        expanded={expanded === "heart"}
+        hidden={expanded === "kidney"}
+        applyColour={applyColour.heart}
+        onApplyColourChange={(on) => onApplyColourChange?.("heart", on)}
+        onSelect={() =>
+          onOrganSelect(focusedOrgan === "heart" ? null : "heart")
+        }
+        onToggleExpand={() =>
+          setExpanded((current) => (current === "heart" ? null : "heart"))
+        }
+        label="Heart"
+      />
+      <OrganCanvas
+        url="/models/human_kidney.glb"
+        organId="kidney"
+        indicator={organs.kidney_left}
+        colorMode={colorMode}
+        riskScore={organRisk.kidney}
+        focused={focusedOrgan === "kidney_left" || focusedOrgan === "kidney_right"}
+        expanded={expanded === "kidney"}
+        hidden={expanded === "heart"}
+        applyColour={applyColour.kidney}
+        onApplyColourChange={(on) => onApplyColourChange?.("kidney", on)}
+        onSelect={() =>
+          onOrganSelect(
+            focusedOrgan === "kidney_left" || focusedOrgan === "kidney_right"
+              ? null
+              : "kidney_left"
+          )
+        }
+        onToggleExpand={() =>
+          setExpanded((current) => (current === "kidney" ? null : "kidney"))
+        }
+        label="Kidneys"
+      />
+    </div>
+  );
 }
