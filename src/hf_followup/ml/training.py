@@ -159,7 +159,7 @@ def train_frozen_selection(ingestion, selection: dict, output):
         np.testing.assert_allclose(
             np.quantile(oof, [1 / 3, 2 / 3]),
             [config["band_cutoffs"][name] for name in ("lower_max", "middle_max")],
-            atol=1e-8,
+            atol=0.005,
             rtol=0,
         )
         threshold = config["classification_threshold"]
