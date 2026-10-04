@@ -7,9 +7,9 @@ interface ScoreOutputProps {
 function evidenceLabel(item: EvidenceItem): string {
   switch (item.field) {
     case "ejection_fraction":
-      return `EF ${item.value}${item.unit} < 35`;
+      return `EF ${item.value}${item.unit ?? "%"}`;
     case "serum_creatinine":
-      return `Cr ${item.value} > 1.5`;
+      return `Cr ${item.value}`;
     case "anaemia":
       return "Anaemia";
     case "diabetes":
@@ -29,27 +29,29 @@ export default function ScoreOutput({
   return (
     <div className="score-strip">
       <div className="score-strip-head">
-        <span className="risk-score-number">{patient.score}</span>
-        <span className="risk-score-label">
-          {patient.score_kind === "model_output" ? "Model" : "Score"}
-        </span>
+        {(patient.score_kind === "points" || patient.score_kind === "combined") && (
+          <span className="score-metric">
+            <span className="risk-score-number">{patient.score}</span>
+            <span className="risk-score-label">{patient.score_kind === "combined" ? "Pts" : "Score"}</span>
+          </span>
+        )}
       </div>
-      {patient.evidence.length > 0 ? (
+      {(patient.score_kind === "points" || patient.score_kind === "combined") && patient.evidence.length > 0 ? (
         <div className="evidence-chips">
-          {patient.evidence.map((item) => (
-            <span
-              key={item.id}
-              className="evidence-chip"
-              title={item.description}
-            >
-              {evidenceLabel(item)}
-              {item.points !== undefined && <b>+{item.points}</b>}
-            </span>
-          ))}
+          {patient.evidence
+            .filter((item) => item.points != null)
+            .map((item) => (
+              <span
+                key={item.id}
+                className="evidence-chip"
+                title={item.description}
+              >
+                {evidenceLabel(item)}
+                <b>+{item.points}</b>
+              </span>
+            ))}
         </div>
-      ) : (
-        <p className="no-evidence">No factors flagged</p>
-      )}
+      ) : null}
     </div>
   );
 }

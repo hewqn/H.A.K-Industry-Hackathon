@@ -1,28 +1,18 @@
 import ScoreOutput from "./ScoreOutput";
+import type { QueueMode } from "../api/loadRanking";
 import type { Patient, OrganId } from "../types/patient";
 
 interface AnatomyViewProps {
   patient: Patient;
-  focusedOrgan: OrganId | null;
-  onOrganSelect: (organ: OrganId | null) => void;
-  heartWeight: number;
-  onHeartWeightChange: (weight: number) => void;
+  queueMode: QueueMode;
+  onQueueModeChange: (mode: QueueMode) => void;
 }
 
 export default function AnatomyView({
   patient,
-  focusedOrgan,
-  onOrganSelect,
-  heartWeight,
-  onHeartWeightChange,
+  queueMode,
+  onQueueModeChange,
 }: AnatomyViewProps) {
-  const { facts, organs } = patient;
-
-  const organCards: { id: OrganId; label: string; flag: string }[] = [
-    { id: "heart", label: "Heart", flag: "EF < 35%" },
-    { id: "kidney_left", label: "Kidneys", flag: "Cr > 1.5" },
-  ];
-
   return (
     <div className="anatomy-info">
       <header className="patient-head">
@@ -34,22 +24,61 @@ export default function AnatomyView({
 
       <section className="weight-control">
         <div>
-          <h3>Heart Weight</h3>
-          <p className="weight-desc">Extra points when EF is below 35%.</p>
+          <h3>Call list</h3>
+          <p className="weight-desc">
+            {queueMode === "model"
+              ? "ML model ranks by predicted risk."
+              : queueMode === "oldest"
+                ? "Oldest first. The baseline to beat."
+                : `ML base + heart weight ${queueMode}. EF below 35% is worth ${queueMode}.`}
+          </p>
         </div>
-        <div className="weight-buttons">
-          {[2, 3, 4].map((w) => (
+        <div className="weight-buttons" role="group" aria-label="Call list mode">
+          <button
+            className={queueMode === "model" ? "active" : ""}
+            onClick={() => onQueueModeChange("model")}
+          >
+            Model
+          </button>
+          {([2, 3] as const).map((w) => (
             <button
               key={w}
-              className={heartWeight === w ? "active" : ""}
-              onClick={() => onHeartWeightChange(w)}
+              className={queueMode === w ? "active" : ""}
+              onClick={() => onQueueModeChange(w)}
+              aria-label={`Heart weight ${w}`}
             >
-              {w}
+              Weight {w}
             </button>
           ))}
+          <button
+            className={queueMode === "oldest" ? "active" : ""}
+            onClick={() => onQueueModeChange("oldest")}
+          >
+            Oldest
+          </button>
         </div>
       </section>
+    </div>
+  );
+}
 
+export function PatientRecord({
+  patient,
+  focusedOrgan,
+  onOrganSelect,
+}: {
+  patient: Patient;
+  focusedOrgan: OrganId | null;
+  onOrganSelect: (organ: OrganId | null) => void;
+}) {
+  const { facts, organs } = patient;
+  const organCards: { id: OrganId; label: string; flag: string }[] = [
+    { id: "heart", label: "Heart", flag: "EF < 35%" },
+    { id: "kidney_left", label: "Kidneys", flag: "Cr > 1.5" },
+  ];
+
+  return (
+    <div className="patient-record-block">
       <section className="organ-cards">
         {organCards.map(({ id, label, flag }) => {
           const indicator = organs[id];
@@ -73,7 +102,6 @@ export default function AnatomyView({
           );
         })}
       </section>
-
       <section className="patient-record">
         <div className="facts-grid">
           <div>

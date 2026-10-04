@@ -1,9 +1,16 @@
+import type { QueueMode } from "../api/loadRanking";
 import type { Patient } from "../types/patient";
 import type { ColorMode } from "../utils/organColors";
-import { heartScalePosition, kidneyScalePosition } from "../utils/organColors";
+import {
+  heartScalePosition,
+  kidneyScalePosition,
+  pointsCeiling,
+  scoreScalePosition,
+} from "../utils/organColors";
 
 interface ColorLegendProps {
   mode: ColorMode;
+  queueMode: QueueMode;
   patient?: Patient | null;
   preview?: Patient | null;
   base?: boolean;
@@ -44,8 +51,72 @@ function Scale({
   );
 }
 
+function heartWeightOf(queueMode: QueueMode): number {
+  return typeof queueMode === "number" ? queueMode : 2;
+}
+
+function scoreLabel(patient: Patient): string | null {
+  if (patient.score_kind === "points" || patient.score_kind === "combined")
+    return String(patient.score);
+  if (patient.score_kind === "model_output") return patient.score.toFixed(3);
+  return null;
+}
+
+function ScoreScale({
+  queueMode,
+  patient,
+  compared,
+}: {
+  queueMode: QueueMode;
+  patient?: Patient | null;
+  compared: Patient | null;
+}) {
+  if (
+    queueMode === "oldest" ||
+    patient == null ||
+    patient.score_kind === "age"
+  ) {
+    return null;
+  }
+
+  const weight = heartWeightOf(queueMode);
+  const position = scoreScalePosition(patient.score, patient.score_kind, weight);
+  const previewPosition =
+    compared != null &&
+    (compared.score_kind === patient.score_kind ||
+      (compared.score_kind === "combined" && patient.score_kind === "combined"))
+      ? scoreScalePosition(compared.score, compared.score_kind, weight)
+      : null;
+
+  return (
+    <div className="legend-row legend-score">
+      <span className="legend-organ">
+        {queueMode === "model" ? "Model" : "Score"}
+      </span>
+      <div className="legend-scale">
+        <Scale
+          swatch="risk-heat"
+          position={position}
+          label={patient != null ? scoreLabel(patient) : null}
+          previewPosition={previewPosition}
+          previewLabel={compared != null ? scoreLabel(compared) : null}
+        />
+        <div className="legend-ends">
+          <span>Lower</span>
+          <span>
+            {queueMode === "model"
+              ? "Higher model score"
+              : `Higher · max ${pointsCeiling(weight)}`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ColorLegend({
   mode,
+  queueMode,
   patient,
   preview,
   base = false,
@@ -56,71 +127,13 @@ export default function ColorLegend({
       : null;
 
   if (mode === "risk") {
-    const heartRisk = patient?.organ_risk.heart ?? null;
-    const kidneyRisk = patient?.organ_risk.kidney ?? null;
-    const previewHeart = compared?.organ_risk.heart ?? null;
-    const previewKidney = compared?.organ_risk.kidney ?? null;
-    const fromModel = patient?.score_kind === "model_output";
-
     return (
       <div className={`color-legend ${base ? "is-base" : ""}`}>
         {base && <p className="color-legend-title">Base model</p>}
-        <div className="legend-row">
-          <span className="legend-organ">Heart</span>
-          <div className="legend-scale">
-            <Scale
-              swatch="risk-heat"
-              position={heartRisk}
-              label={
-                heartRisk === null
-                  ? null
-                  : fromModel
-                    ? heartRisk.toFixed(2)
-                    : `${patient?.facts.ejection_fraction}%`
-              }
-              previewPosition={previewHeart}
-              previewLabel={
-                previewHeart === null || compared == null
-                  ? null
-                  : compared.score_kind === "model_output"
-                    ? previewHeart.toFixed(2)
-                    : `${compared.facts.ejection_fraction}%`
-              }
-            />
-            <div className="legend-ends">
-              <span>Lower risk</span>
-              <span>Higher risk</span>
-            </div>
-          </div>
-        </div>
-        <div className="legend-row">
-          <span className="legend-organ">Kidneys</span>
-          <div className="legend-scale">
-            <Scale
-              swatch="risk-heat"
-              position={kidneyRisk}
-              label={
-                kidneyRisk === null
-                  ? null
-                  : fromModel
-                    ? kidneyRisk.toFixed(2)
-                    : String(patient?.facts.serum_creatinine)
-              }
-              previewPosition={previewKidney}
-              previewLabel={
-                previewKidney === null || compared == null
-                  ? null
-                  : compared.score_kind === "model_output"
-                    ? previewKidney.toFixed(2)
-                    : String(compared.facts.serum_creatinine)
-              }
-            />
-            <div className="legend-ends">
-              <span>Lower risk</span>
-              <span>Higher risk</span>
-            </div>
-          </div>
-        </div>
+        <ScoreScale queueMode={queueMode} patient={patient} compared={compared} />
+        {queueMode === "oldest" && (
+          <p className="legend-empty">Oldest first ranks by age.</p>
+        )}
       </div>
     );
   }
@@ -131,9 +144,10 @@ export default function ColorLegend({
   const previewCr = compared?.facts.serum_creatinine ?? null;
 
   return (
-      <div className={`color-legend ${base ? "is-base" : ""}`}>
-        {base && <p className="color-legend-title">Base model</p>}
-        <div className="legend-row">
+    <div className={`color-legend ${base ? "is-base" : ""}`}>
+      {base && <p className="color-legend-title">Base model</p>}
+      <ScoreScale queueMode={queueMode} patient={patient} compared={compared} />
+      <div className="legend-row">
         <span className="legend-organ">Heart</span>
         <div className="legend-scale">
           <Scale

@@ -26,10 +26,12 @@ _TRANSITIONS = {
 
 
 class ApplicationService:
-    def __init__(self, cohort, benchmark: dict, settings, repository=None):
+    def __init__(self, cohort, benchmark: dict, settings, prediction_bundle=None, repository=None):
         self.cohort = cohort
         self.benchmark = benchmark
         self.settings = settings
+        self.prediction_bundle = prediction_bundle
+        self.predictions = prediction_bundle.ranking_predictions() if prediction_bundle else {}
         self.repo = repository
 
         # Mutable session state rebuilt from events on startup.
@@ -44,7 +46,13 @@ class ApplicationService:
             self._replay_events()
 
         # Always create a default snapshot so the API has something to serve.
-        self.default_snapshot = self.create_snapshot("points_v1", 25)
+        self.default_snapshot = self.create_snapshot(self._default_method(), 25)
+
+    def _default_method(self) -> str:
+        method = self.settings.default_method
+        if method == "auto":
+            return "patient_risk" if self.prediction_bundle else "points_v1"
+        return method
 
     # ------------------------------------------------------------------
     # Event replay on startup
@@ -66,13 +74,23 @@ class ApplicationService:
                 self._apply_override(payload)
             elif action == "reset":
                 self._apply_reset(payload)
+            elif action == "add_patient":
+                self._apply_add_patient(payload)
+            elif action == "update_patient":
+                self._apply_update_patient(payload)
+            elif action == "delete_patient":
+                self._apply_delete_patient(payload)
 
     def _apply_snapshot(self, payload: dict):
         """Rebuild a snapshot from its event payload."""
-        ranking = build_ranking(
-            self.cohort.features, self.workflow, self.overrides,
-            payload["method_id"], payload["capacity"], mode=payload.get("mode", "operational"),
-        )
+        try:
+            ranking = build_ranking(
+                self.cohort.features, self.workflow, self.overrides,
+                payload["method_id"], payload["capacity"], mode=payload.get("mode", "operational"),
+                predictions=self.predictions,
+            )
+        except DomainError:
+            return  # skip snapshots whose method was removed
         snapshot = {
             **ranking,
             "snapshot_id": payload["snapshot_id"],
@@ -115,6 +133,34 @@ class ApplicationService:
         self.overrides.clear()
         self.snapshots.clear()
         self._pin_sequence = 0
+
+    def _apply_add_patient(self, payload: dict):
+        """Replay a patient addition."""
+        pid = payload["patient_id"]
+        self.cohort.features[pid] = {
+            "patient_id": pid,
+            "source_row": payload["source_row"],
+            "facts": payload["facts"],
+        }
+        self.cohort.manifest["accepted_ids"] = list(self.cohort.features.keys())
+        self.cohort.manifest["accepted_count"] = len(self.cohort.features)
+        self.cohort.manifest["source_count"] = len(self.cohort.features)
+
+    def _apply_update_patient(self, payload: dict):
+        """Replay a patient update."""
+        pid = payload["patient_id"]
+        if pid in self.cohort.features:
+            self.cohort.features[pid]["facts"] = payload["updated_facts"]
+
+    def _apply_delete_patient(self, payload: dict):
+        """Replay a patient deletion."""
+        pid = payload["patient_id"]
+        self.cohort.features.pop(pid, None)
+        self.cohort.manifest["accepted_ids"] = list(self.cohort.features.keys())
+        self.cohort.manifest["accepted_count"] = len(self.cohort.features)
+        self.cohort.manifest["source_count"] = len(self.cohort.features)
+        self.workflow.pop(pid, None)
+        self.overrides.pop(pid, None)
 
     # ------------------------------------------------------------------
     # Command protocol
@@ -162,6 +208,7 @@ class ApplicationService:
         ranking = build_ranking(
             self.cohort.features, self.workflow, self.overrides,
             method_id, capacity, mode=mode,
+            predictions=self.predictions,
         )
         snapshot = {
             **ranking,
@@ -175,6 +222,9 @@ class ApplicationService:
             "overrides": dict(self.overrides),
             "provenance": "persisted" if self.repo else "in_memory",
             "sync_mode": "persisted" if self.repo else "in_memory_scaffold",
+            "model_bundle_id": self.prediction_bundle.manifest["bundle_id"]
+            if self.prediction_bundle
+            else None,
         }
         self.snapshots[snapshot["snapshot_id"]] = snapshot
         return snapshot
@@ -366,9 +416,107 @@ class ApplicationService:
         if not result["duplicate"]:
             self._apply_reset(payload)
             # Recreate the default snapshot after reset.
-            self.default_snapshot = self.create_snapshot("points_v1", 25)
+            self.default_snapshot = self.create_snapshot(self._default_method(), 25)
 
         return {
+            "revision": result["revision"],
+            "sync_status": result["sync_status"],
+        }
+
+    # ------------------------------------------------------------------
+    # Patient CRUD
+    # ------------------------------------------------------------------
+
+    def _next_patient_id(self) -> str:
+        """Generate the next available HF-XXXX patient ID."""
+        existing = [
+            int(pid.split("-")[1]) for pid in self.cohort.features if pid.startswith("HF-")
+        ]
+        next_num = max(existing, default=0) + 1
+        return f"HF-{next_num:04d}"
+
+    def add_patient(self, command_id: str, expected_revision: int, facts: dict) -> dict:
+        """Add a new patient to the cohort."""
+        patient_id = self._next_patient_id()
+        source_row = max(
+            (f["source_row"] for f in self.cohort.features.values()), default=0
+        ) + 1
+
+        payload = {
+            "action": "add_patient",
+            "patient_id": patient_id,
+            "source_row": source_row,
+            "facts": facts,
+        }
+        result = self._execute_command(command_id, expected_revision, payload)
+
+        if not result["duplicate"]:
+            self.cohort.features[patient_id] = {
+                "patient_id": patient_id,
+                "source_row": source_row,
+                "facts": facts,
+            }
+            self.cohort.manifest["accepted_ids"].append(patient_id)
+            self.cohort.manifest["accepted_count"] = len(self.cohort.features)
+            self.cohort.manifest["source_count"] = len(self.cohort.features)
+
+        return {
+            "patient_id": patient_id,
+            "facts": facts,
+            "revision": result["revision"],
+            "sync_status": result["sync_status"],
+        }
+
+    def update_patient(self, command_id: str, expected_revision: int,
+                       patient_id: str, updates: dict) -> dict:
+        """Update an existing patient's facts."""
+        if patient_id not in self.cohort.features:
+            raise DomainError("patient_not_found", "Patient does not exist.", 404)
+
+        current_facts = dict(self.cohort.features[patient_id]["facts"])
+        new_facts = {**current_facts, **updates}
+
+        payload = {
+            "action": "update_patient",
+            "patient_id": patient_id,
+            "previous_facts": current_facts,
+            "updated_facts": new_facts,
+        }
+        result = self._execute_command(command_id, expected_revision, payload)
+
+        if not result["duplicate"]:
+            self.cohort.features[patient_id]["facts"] = new_facts
+
+        return {
+            "patient_id": patient_id,
+            "facts": new_facts,
+            "revision": result["revision"],
+            "sync_status": result["sync_status"],
+        }
+
+    def delete_patient(self, command_id: str, expected_revision: int,
+                       patient_id: str, reason: str) -> dict:
+        """Remove a patient from the cohort."""
+        if patient_id not in self.cohort.features:
+            raise DomainError("patient_not_found", "Patient does not exist.", 404)
+
+        payload = {
+            "action": "delete_patient",
+            "patient_id": patient_id,
+            "reason": reason,
+        }
+        result = self._execute_command(command_id, expected_revision, payload)
+
+        if not result["duplicate"]:
+            del self.cohort.features[patient_id]
+            self.cohort.manifest["accepted_ids"] = list(self.cohort.features.keys())
+            self.cohort.manifest["accepted_count"] = len(self.cohort.features)
+            self.cohort.manifest["source_count"] = len(self.cohort.features)
+            self.workflow.pop(patient_id, None)
+            self.overrides.pop(patient_id, None)
+
+        return {
+            "patient_id": patient_id,
             "revision": result["revision"],
             "sync_status": result["sync_status"],
         }
@@ -461,17 +609,32 @@ class ApplicationService:
         }
 
     def models(self) -> dict:
+        manifest = self.prediction_bundle.manifest if self.prediction_bundle else None
+        supervised = None
+        if self.prediction_bundle:
+            report = self.prediction_bundle.report
+            supervised = {
+                "evaluation_mode": "exploratory_held_out_test",
+                "development_n": len(report["split"]["development_ids"]),
+                "test_n": len(report["split"]["test_ids"]),
+                "selection": report["selection"],
+                "tasks": report["tasks"],
+                "limitations": report["limitations"],
+            }
         return {
             "methods": [
                 {
                     "method_id": method,
                     "label": method.replace("_", " "),
                     "score_kind": "points" if method.startswith("points") else "model_output",
+                    "available": True,
                 }
-                for method in METHODS
+                for method in (*METHODS, *self.predictions)
             ],
-            "reports": {"benchmark": self.benchmark},
-            "supervised_status": "awaiting_ml_owner",
+            "reports": {"benchmark": self.benchmark, "supervised": supervised},
+            "supervised_status": "ready" if manifest else "not_published",
+            "bundle_id": manifest["bundle_id"] if manifest else None,
+            "selected_models": manifest["models"] if manifest else {},
         }
 
     def patient(self, patient_id: str, snapshot_id: str) -> dict:
@@ -524,7 +687,19 @@ class ApplicationService:
             "provenance": "persisted" if self.repo else "local_csv_scaffold",
             "summary_status": "template",
             "fact_units": UNITS,
+            "model_risks": self.prediction_bundle.patients[patient_id]["risks"]
+            if self.prediction_bundle
+            else None,
         }
+        # One evidence namespace for summaries/tools. Logistic entries are real scaled
+        # log-odds contributions; forest entries are observations, not local attribution.
+        if patient["model_risks"]:
+            evidence = {item["id"]: item for item in patient["evidence"]}
+            for task in self.prediction_bundle.manifest["models"]:
+                evidence.update(
+                    {item["id"]: item for item in patient["model_risks"][task]["evidence"]}
+                )
+            patient["evidence"] = list(evidence.values())
         patient["evidence_digest"] = digest(patient)
         patient["summary"] = template_summary(patient)
         return patient

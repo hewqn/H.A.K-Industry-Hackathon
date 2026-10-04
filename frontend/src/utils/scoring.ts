@@ -1,5 +1,4 @@
 import type { Patient, OrganIndicator, EvidenceItem } from "../types/patient";
-import { heartRiskFromData, kidneyScalePosition } from "./organColors";
 
 interface RawRow {
   age: number;
@@ -171,10 +170,6 @@ export function rankPatients(
       priority_band: priorityBand,
       score,
       score_kind: "points",
-      organ_risk: {
-        heart: heartRiskFromData(row.ejection_fraction, heartWeight),
-        kidney: kidneyScalePosition(row.serum_creatinine),
-      },
       facts: {
         age: row.age,
         ejection_fraction: row.ejection_fraction,

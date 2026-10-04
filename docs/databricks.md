@@ -80,3 +80,13 @@ Checksums detect corruption, not authenticity: only import reviewed team outputs
 Record source/model versions, refresh time, transport mode, actual Delta/MLflow evidence,
 one restart recovery, and one reconciliation drill. Local source-code/tests do not
 satisfy DB-01/DB-02 until these workspace checks have really happened.
+
+## Implemented local ML handoff
+
+See [ML integration](ml-integration.md). `make train` refits frozen selections,
+verifies their lineage and publishes the local prediction bundle. `make publish-models`
+promotes notebook artifacts in their training environment. Notebook 03 contains
+gated local/Delta publication and version-scoped replaceWhere writes, requiring an
+approved Volume readable by Spark. Live writes/MLflow logging remain unverified.
+The 897-row JSONL export matches model_predictions; backend transport must preserve
+model/threshold/band versions and require complete cohort coverage.

@@ -5,6 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from hf_followup.domain.constants import COHORT_ID
+from hf_followup.domain.predictions import ModelFamily, ModelRisks, RiskTask
 
 
 class Request(BaseModel):
@@ -36,6 +37,38 @@ class OverrideRequest(Command):
 
 
 class ResetRequest(Command):
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class PatientCreateRequest(Command):
+    age: float = Field(gt=0)
+    anaemia: bool
+    creatinine_phosphokinase: float = Field(ge=0)
+    diabetes: bool
+    ejection_fraction: float = Field(ge=0, le=100)
+    high_blood_pressure: bool
+    platelets: float = Field(ge=0)
+    serum_creatinine: float = Field(gt=0)
+    serum_sodium: float = Field(gt=0)
+    sex: bool
+    smoking: bool
+
+
+class PatientUpdateRequest(Command):
+    age: float | None = Field(default=None, gt=0)
+    anaemia: bool | None = None
+    creatinine_phosphokinase: float | None = Field(default=None, ge=0)
+    diabetes: bool | None = None
+    ejection_fraction: float | None = Field(default=None, ge=0, le=100)
+    high_blood_pressure: bool | None = None
+    platelets: float | None = Field(default=None, ge=0)
+    serum_creatinine: float | None = Field(default=None, gt=0)
+    serum_sodium: float | None = Field(default=None, gt=0)
+    sex: bool | None = None
+    smoking: bool | None = None
+
+
+class PatientDeleteRequest(Command):
     reason: str = Field(min_length=1, max_length=1000)
 
 
@@ -167,6 +200,7 @@ class Snapshot(BaseModel):
     overrides: dict[str, Override]
     provenance: str
     sync_mode: str
+    model_bundle_id: str | None = None
 
 
 class MutationResult(BaseModel):
@@ -197,6 +231,32 @@ class PatientRead(BaseModel):
     fact_units: dict[str, str]
     evidence_digest: str
     summary: Summary
+    model_risks: ModelRisks | None = None
+
+
+class ModelDescriptor(BaseModel):
+    family: ModelFamily
+    model_version: str
+    features: list[str]
+    classification_threshold: float = Field(ge=0, le=1)
+    band_cutoffs: dict[str, float]
+    explanation_method: str
+    calibration_status: Literal["not_calibrated"]
+
+
+class MethodRead(BaseModel):
+    method_id: str
+    label: str
+    score_kind: str
+    available: bool
+
+
+class ModelsRead(BaseModel):
+    methods: list[MethodRead]
+    reports: dict[str, Any]
+    supervised_status: Literal["ready", "not_published"]
+    bundle_id: str | None
+    selected_models: dict[RiskTask, ModelDescriptor]
 
 
 class CohortRead(BaseModel):
