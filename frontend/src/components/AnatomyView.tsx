@@ -1,4 +1,5 @@
 import ScoreOutput from "./ScoreOutput";
+import InterfaceIcon from "./InterfaceIcon";
 import type { QueueMode } from "../api/loadRanking";
 import type { Patient, OrganId } from "../types/patient";
 
@@ -16,9 +17,15 @@ export default function AnatomyView({
   return (
     <div className="anatomy-info">
       <header className="patient-head">
-        <h2>
-          Patient {patient.patient_id.replace("HF-", "").replace(/^0+/, "")}
-        </h2>
+        <div className="patient-identity">
+          <span className="patient-avatar"><InterfaceIcon name="user" /></span>
+          <div><p className="eyebrow">Selected record</p><h2>
+            Patient {patient.patient_id.replace("HF-", "").replace(/^0+/, "")}
+          </h2><div className="patient-meta"><code>{patient.patient_id}</code><span>Rank {patient.rank}</span>
+            <span className={`priority-badge priority-${patient.priority_band}`}>{patient.priority_band} queue priority</span>
+            <span className="workflow-badge">{patient.workflow_state.replaceAll("_", " ")}</span>
+          </div></div>
+        </div>
         <ScoreOutput patient={patient} />
       </header>
 
@@ -36,6 +43,7 @@ export default function AnatomyView({
         <div className="weight-buttons" role="group" aria-label="Call list mode">
           <button
             className={queueMode === "model" ? "active" : ""}
+            aria-pressed={queueMode === "model"}
             onClick={() => onQueueModeChange("model")}
           >
             Model
@@ -44,6 +52,7 @@ export default function AnatomyView({
             <button
               key={w}
               className={queueMode === w ? "active" : ""}
+              aria-pressed={queueMode === w}
               onClick={() => onQueueModeChange(w)}
               aria-label={`Heart weight ${w}`}
             >
@@ -52,6 +61,7 @@ export default function AnatomyView({
           ))}
           <button
             className={queueMode === "oldest" ? "active" : ""}
+            aria-pressed={queueMode === "oldest"}
             onClick={() => onQueueModeChange("oldest")}
           >
             Oldest
@@ -78,7 +88,8 @@ export function PatientRecord({
   ];
 
   return (
-    <div className="patient-record-block">
+    <section className="patient-record-block" aria-label="Recorded measurements">
+      <div className="panel-heading"><div><p className="eyebrow">Baseline facts</p><h3>Recorded measurements</h3></div><InterfaceIcon name="pulse" /></div>
       <section className="organ-cards">
         {organCards.map(({ id, label, flag }) => {
           const indicator = organs[id];
@@ -87,12 +98,14 @@ export function PatientRecord({
             <button
               key={id}
               className={`organ-card ${isFocused ? "focused" : ""}`}
+              aria-pressed={isFocused}
               onClick={() => onOrganSelect(isFocused ? null : id)}
             >
               <span className="organ-name">{label}</span>
+              <span className="organ-measurement-name">{id === "heart" ? "Ejection fraction" : "Serum creatinine"}</span>
               <span className="organ-card-value">
                 {indicator.value !== null
-                  ? `${indicator.value}${indicator.unit}`
+                  ? <>{indicator.value}<small>{indicator.unit}</small></>
                   : "—"}
               </span>
               {indicator.state === "flagged" && (
@@ -114,18 +127,18 @@ export function PatientRecord({
           </div>
           <div>
             <span>Sodium</span>
-            <b>{facts.serum_sodium}</b>
+            <b>{facts.serum_sodium}<small>mEq/L</small></b>
           </div>
           <div>
             <span>CPK</span>
-            <b>{facts.creatinine_phosphokinase}</b>
+            <b>{facts.creatinine_phosphokinase}<small>mcg/L</small></b>
           </div>
           <div>
             <span>Platelets</span>
-            <b>{facts.platelets.toLocaleString()}</b>
+            <b><span>{facts.platelets.toLocaleString()}</span><small>platelets/µL</small></b>
           </div>
         </div>
-        <div className="condition-list">
+        <p className="condition-heading">Recorded conditions</p><div className="condition-list">
           {facts.anaemia && <span className="cond-pill">Anaemia</span>}
           {facts.diabetes && <span className="cond-pill">Diabetes</span>}
           {facts.high_blood_pressure && (
@@ -140,6 +153,6 @@ export function PatientRecord({
             )}
         </div>
       </section>
-    </div>
+    </section>
   );
 }

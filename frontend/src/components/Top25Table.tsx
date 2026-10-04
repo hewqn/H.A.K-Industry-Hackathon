@@ -1,4 +1,5 @@
 import type { Patient } from "../types/patient";
+import InterfaceIcon from "./InterfaceIcon";
 
 interface Top25TableProps {
   patients: Patient[];
@@ -48,28 +49,27 @@ export default function Top25Table({
   const moveHeader = isCombined ? "vs Model" : "vs Oldest";
 
   return (
-    <aside className="queue-panel">
-      <h3>Top 25</h3>
+    <aside className="queue-panel" aria-label="Top 25 call list">
+      <div className="panel-heading"><div><p className="eyebrow">Current call order</p><h3>Top 25 <span className="count-badge">{top25.length}</span></h3></div><InterfaceIcon name="queue" /></div>
+      <p className="queue-description">Select a record to review its measurements and evidence.</p>
       <div className="queue-table-box">
-        <div className="queue-table-head-wrap">
+        <div className="queue-table-wrap">
+          {/* One table keeps column headers associated with the scrollable rows.
+              Native patient buttons preserve keyboard selection and row clicks. */}
           <table className="queue-table">
+            <caption className="sr-only">First 25 patients in the active call order. EF is a percentage, Cr is mg/dL and Age is years.</caption>
             <ColumnGroup showMove={showMove} />
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Patient</th>
-                <th>EF</th>
-                <th>Cr</th>
-                <th>Age</th>
-                <th>Score</th>
-                {showMove && <th>{moveHeader}</th>}
+                <th scope="col">Rank</th>
+                <th scope="col">Patient</th>
+                <th scope="col" title="Ejection fraction (%)">EF</th>
+                <th scope="col" title="Serum creatinine (mg/dL)">Cr</th>
+                <th scope="col" title="Age (years)">Age</th>
+                <th scope="col">Score</th>
+                {showMove && <th scope="col">{moveHeader}</th>}
               </tr>
             </thead>
-          </table>
-        </div>
-        <div className="queue-table-wrap">
-          <table className="queue-table">
-            <ColumnGroup showMove={showMove} />
             <tbody>
               {top25.map((patient, index) => {
                 const selected = patient.patient_id === selectedId;
@@ -89,19 +89,12 @@ export default function Top25Table({
                     onClick={() => onSelect(patient.patient_id)}
                     onMouseEnter={() => onPreview?.(patient.patient_id)}
                     onMouseLeave={() => onPreview?.(null)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelect(patient.patient_id);
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    aria-pressed={selected}
-                    aria-label={`Select patient ${patientNumber(patient.patient_id)}`}
                   >
                     <td className="rank-cell">{currentRank}</td>
-                    <td>Patient {patientNumber(patient.patient_id)}</td>
+                    <td><button className="queue-patient-button" aria-pressed={selected}
+                      aria-label={`Select patient ${patientNumber(patient.patient_id)}`}>
+                      <span>Patient {patientNumber(patient.patient_id)}</span><small>{patient.patient_id}</small>
+                    </button></td>
                     <td
                       className={
                         patient.facts.ejection_fraction < 35 ? "warn" : ""

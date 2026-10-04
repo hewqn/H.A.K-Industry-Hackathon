@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { deletePatient, patientError, savePatient, type PatientFacts } from "../api/patients";
 import type { Patient } from "../types/patient";
+import InterfaceIcon from "./InterfaceIcon";
 
 const measurements = [
   ["age", "Age (years)", true],
@@ -85,8 +86,8 @@ export default function PatientActions({ patient, enabled, loading, onBusy, onCh
   }
   return <div className="patient-actions">
     <div className="patient-action-buttons">
-      <button disabled={!enabled || loading} onClick={() => open("add")}>Add patient</button>
-      <button disabled={!enabled || loading || !patient} onClick={() => open("delete")}>Delete patient</button>
+      <button className="button-primary" disabled={!enabled || loading} onClick={() => open("add")}><InterfaceIcon name="plus" />Add patient</button>
+      <button className="button-danger" disabled={!enabled || loading || !patient} onClick={() => open("delete")}><InterfaceIcon name="trash" />Delete patient</button>
     </div>
     {!enabled && !loading && <small>Patient changes require the local API.</small>}
     {notice && <p role="status">{notice}</p>}
@@ -114,8 +115,8 @@ export default function PatientActions({ patient, enabled, loading, onBusy, onCh
         </>}
         {error && <p role="alert">{error}</p>}
         <div className="patient-dialog-buttons">
-          <button type="button" disabled={busy} onClick={() => setAction(null)}>Cancel</button>
-          <button type="submit" disabled={busy || loading}>
+          <button className="button-secondary" type="button" disabled={busy} onClick={() => setAction(null)}>Cancel</button>
+          <button className={action === "add" ? "button-primary" : "button-danger"} type="submit" disabled={busy || loading}>
             {busy ? "Saving…" : action === "add" ? "Save patient" : "Confirm deletion"}
           </button>
         </div>
