@@ -1,19 +1,25 @@
 import { useState, useEffect } from "react";
 import AnatomyViewer from "./components/AnatomyViewer";
-import AnatomyView from "./components/AnatomyView";
+import AnatomyView, { PatientRecord } from "./components/AnatomyView";
 import Top25Table from "./components/Top25Table";
 import ColorLegend from "./components/ColorLegend";
-import { loadRanking } from "./api/loadRanking";
+import CaseReport from "./components/CaseReport";
+import { loadRanking, type QueueMode } from "./api/loadRanking";
+import { loadCaseReport, type CaseReport as CaseReportData } from "./api/loadCaseReport";
 import type { Patient, OrganId } from "./types/patient";
-import type { ColorMode } from "./utils/organColors";
+import {
+  scoreScalePosition,
+  type ColorMode,
+} from "./utils/organColors";
 import "./App.css";
 
 export default function App() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
-  const [colorMode, setColorMode] = useState<ColorMode>("risk");
-  const [heartWeight, setHeartWeight] = useState(2);
+  const [colorMode, setColorMode] = useState<ColorMode>("anatomy");
+  const [queueMode, setQueueMode] = useState<QueueMode>(2);
+  const [caseReport, setCaseReport] = useState<CaseReportData | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [applyColour, setApplyColour] = useState({ heart: true, kidney: true });
   const [source, setSource] = useState<"api" | "local">("local");
@@ -22,27 +28,47 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    loadRanking(heartWeight).then(({ patients: ranked, source: nextSource, method: nextMethod }) => {
+    loadRanking(queueMode).then(({ patients: ranked, source: nextSource, method: nextMethod }) => {
       if (cancelled) return;
       setPatients(ranked);
       setSource(nextSource);
       setMethod(nextMethod);
-      setSelectedId((current) =>
-        current && ranked.some((patient) => patient.patient_id === current)
-          ? current
-          : (ranked[0]?.patient_id ?? null),
-      );
+      setSelectedId(ranked[0]?.patient_id ?? null);
+      setPreviewId(null);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [heartWeight]);
+  }, [queueMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCaseReport().then((report) => {
+      if (!cancelled) setCaseReport(report);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selected = patients.find((p) => p.patient_id === selectedId) ?? null;
   const preview =
     patients.find((p) => p.patient_id === previewId && p.patient_id !== selectedId) ??
     null;
+  const rankingHeat =
+    selected == null ||
+    queueMode === "oldest" ||
+    selected.score_kind === "age"
+      ? undefined
+      : (() => {
+          const heat = scoreScalePosition(
+            selected.score,
+            selected.score_kind,
+            typeof queueMode === "number" ? queueMode : 2,
+          );
+          return { heart: heat, kidney: heat };
+        })();
 
   return (
     <div className="app">
@@ -69,6 +95,7 @@ export default function App() {
         </div>
         <ColorLegend
           mode={colorMode}
+          queueMode={queueMode}
           patient={selected}
           preview={preview}
           base={!applyColour.heart && !applyColour.kidney}
@@ -84,7 +111,9 @@ export default function App() {
                 focusedOrgan={focusedOrgan}
                 onOrganSelect={setFocusedOrgan}
                 colorMode={colorMode}
-                organRisk={selected.organ_risk}
+                organRisk={
+                  colorMode === "risk" ? rankingHeat : selected.organ_risk
+                }
                 applyColour={applyColour}
                 onApplyColourChange={(organ, on) =>
                   setApplyColour((current) => ({ ...current, [organ]: on }))
@@ -95,21 +124,25 @@ export default function App() {
               <AnatomyView
                 key={selected.patient_id}
                 patient={selected}
-                focusedOrgan={focusedOrgan}
-                onOrganSelect={setFocusedOrgan}
-                heartWeight={heartWeight}
-                onHeartWeightChange={setHeartWeight}
+                queueMode={queueMode}
+                onQueueModeChange={setQueueMode}
               />
+              {caseReport && <CaseReport report={caseReport} />}
               <Top25Table
                 patients={patients}
                 selectedId={selected.patient_id}
                 onSelect={setSelectedId}
                 onPreview={setPreviewId}
               />
+              <PatientRecord
+                patient={selected}
+                focusedOrgan={focusedOrgan}
+                onOrganSelect={setFocusedOrgan}
+              />
             </div>
           </div>
         ) : (
-          <div className="empty">Select a patient to begin</div>
+          <div className="empty">Loading the call list</div>
         )}
       </main>
 
@@ -137,7 +170,13 @@ export default function App() {
           {source === "api"
             ? method === "patient_risk"
               ? "UCI cohort via API · frozen ML queue"
-              : "UCI cohort via API"
+              : method === "oldest_first"
+                ? "UCI cohort via API · oldest first"
+              : method === "points_v1"
+                ? "UCI cohort via API · heart weight 2"
+                : method === "points_heart3"
+                  ? "UCI cohort via API · heart weight 3"
+                  : "UCI cohort via API"
             : "UCI Heart Failure Clinical Records, CC BY 4.0"}
         </span>
       </footer>

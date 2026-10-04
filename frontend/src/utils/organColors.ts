@@ -22,63 +22,82 @@ export function kidneyScalePosition(creatinine: number): number {
   return clamp01((creatinine - 0.6) / 2.9);
 }
 
-/** 0 = lower score (left), 1 = higher score (right). */
-export function riskScalePosition(score: number): number {
-  return clamp01(score / 8);
+/** EF weight + Cr 2 + anaemia/diabetes/HBP/age 1 each. */
+export function pointsCeiling(heartWeight: number): number {
+  return heartWeight + 6;
 }
 
-/** Heart heat from EF, plus extra when the weak-heart weight is raised. */
-export function heartRiskFromData(ef: number, heartWeight = 2): number {
-  const base = heartScalePosition(ef);
-  const policyBoost = ef < 35 ? clamp01((heartWeight - 2) / 2) * 0.22 : 0;
-  return clamp01(base + policyBoost);
+/** 0 = lower score (left), 1 = higher score (right). */
+export function riskScalePosition(score: number, heartWeight = 2): number {
+  return clamp01(score / pointsCeiling(heartWeight));
+}
+
+export function scoreScalePosition(
+  score: number,
+  kind: "points" | "model_output" | "age",
+  heartWeight = 2,
+): number {
+  if (kind === "model_output") return clamp01(score);
+  if (kind === "points") return riskScalePosition(score, heartWeight);
+  return 0;
 }
 
 function heatColor(amount: number): THREE.Color {
   const t = clamp01(amount);
-  if (t < 0.5) {
-    return new THREE.Color("#1f8a5b").lerp(new THREE.Color("#e6b325"), t * 2);
+  const green = new THREE.Color("#16c784");
+  const amber = new THREE.Color("#e6b325");
+  const red = new THREE.Color("#d12c2c");
+  // Hold green longer so low risk still reads green on pink mesh.
+  if (t < 0.38) {
+    return green.lerp(amber, (t / 0.38) * 0.35);
   }
-  return new THREE.Color("#e6b325").lerp(new THREE.Color("#d12c2c"), (t - 0.5) * 2);
+  if (t < 0.62) {
+    return green.clone().lerp(amber, 0.35).lerp(amber, (t - 0.38) / 0.24);
+  }
+  return amber.lerp(red, (t - 0.62) / 0.38);
 }
 
 /**
- * Anatomy: mix toward pale grey from the recorded value.
- * Heart uses ejection fraction (low EF = paler).
- * Kidneys use creatinine (high Cr = paler).
- * amount 0 keeps the authored texture (rich).
- *
- * Risk: mix toward green → red from that organ's own risk
- * (points placeholder now, ML organ_risk later).
+ * Tissue State: rich→pale from EF / creatinine.
+ * Risk Score: green→red from frozen ML heart_risk / kidney_risk.
  */
 export function getOrganLook(
   mode: ColorMode,
   organId: OrganId,
   indicator: OrganIndicator,
-  organHeat = 0
+  organHeat?: number,
 ): OrganLook {
-  if (mode === "anatomy") {
-    if (indicator.value === null) {
-      return { tint: new THREE.Color("#c8c4be"), amount: 0.4 };
+  if (mode === "risk") {
+    if (organHeat == null) {
+      return { tint: new THREE.Color("#ffffff"), amount: 0 };
     }
-
-    const paleAmount =
-      organId === "heart"
-        ? heartScalePosition(indicator.value)
-        : kidneyScalePosition(indicator.value);
-
+    const heat = clamp01(organHeat);
     return {
-      tint:
-        organId === "heart"
-          ? new THREE.Color("#f3e0d6")
-          : new THREE.Color("#d4a09a"),
-      amount: 0.18 + paleAmount * 0.5,
+      tint: heatColor(heat),
+      amount: 0.72 + heat * 0.18,
     };
   }
 
-  const heat = clamp01(organHeat);
+  if (indicator.value === null) {
+    return { tint: new THREE.Color("#c8c4be"), amount: 0.4 };
+  }
+
+  const pale =
+    organId === "heart"
+      ? heartScalePosition(indicator.value)
+      : kidneyScalePosition(indicator.value);
+
+  const rich =
+    organId === "heart"
+      ? new THREE.Color("#c4786a")
+      : new THREE.Color("#b24a42");
+  const bloodless =
+    organId === "heart"
+      ? new THREE.Color("#efe6e1")
+      : new THREE.Color("#e8ddd8");
+
   return {
-    tint: heatColor(heat),
-    amount: 0.42 + heat * 0.38,
+    tint: rich.lerp(bloodless, pale),
+    amount: 0.36 + pale * 0.56,
   };
 }
