@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import Depends, FastAPI, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
@@ -22,6 +23,7 @@ from hf_followup.api.schemas import (
     OverrideRequest,
     PatientCreateRequest,
     PatientDeleteRequest,
+    PatientMutationRead,
     PatientRead,
     PatientUpdateRequest,
     ResetRequest,
@@ -78,10 +80,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ingestion = ingest_csv(settings.root / "data/heart_failure_clinical_records.csv")
         report = case_benchmark(ingestion.cohort, ingestion.outcomes)
         predictions = load_prediction_bundle(settings.model_bundle_dir, ingestion.cohort)
+        # Pin lazy inference to the exact publication loaded above, even if the
+        # current.json pointer changes while this process is serving requests.
+        directory = predictions.directory if predictions else None
+
+        def predictor_factory():
+            from hf_followup.ml.inference import RiskPredictor
+
+            return RiskPredictor(directory)
+
         repo, repo_mode = _create_repository(settings)
         app.state.repo_mode = repo_mode
         app.state.service = ApplicationService(
-            ingestion.cohort, report, settings, predictions, repository=repo
+            ingestion.cohort, report, settings, predictions, repository=repo,
+            predictor_factory=predictor_factory,
         )
         del ingestion  # Release evaluator labels before the application starts serving requests.
         async with httpx.AsyncClient(timeout=10, follow_redirects=False) as voice_client:
@@ -117,6 +129,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "retryable": exception.retryable,
             },
         )
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, exception: RequestValidationError):
+        # Nonfinite input can itself break JSON serialization of validation
+        # errors. Return safe field diagnostics without echoing patient values.
+        return JSONResponse(status_code=422, content={
+            "code": "invalid_request",
+            "message": "Check the required fields and valid value ranges.",
+            "detail": [
+                {"loc": item["loc"], "msg": item["msg"], "type": item["type"]}
+                for item in exception.errors()
+            ],
+            "request_id": request.state.request_id,
+        })
 
     def service(request: Request) -> ApplicationService:
         return request.app.state.service
@@ -164,7 +190,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Patient CRUD — POST must be registered before GET {patient_id} so
     # FastAPI doesn't try to match "patients" as a path parameter.
-    @app.post(prefix + "/patients")
+    @app.post(prefix + "/patients", response_model=PatientMutationRead)
     def add_patient(body: PatientCreateRequest, svc=Depends(service)):
         facts = {
             "age": body.age,
@@ -238,7 +264,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             body.patient_id, body.action, body.reason, body.session_id,
         )
 
-    @app.put(prefix + "/patients/{patient_id}")
+    @app.put(prefix + "/patients/{patient_id}", response_model=PatientMutationRead)
     def update_patient(patient_id: str, body: PatientUpdateRequest, svc=Depends(service)):
         updates = {
             k: v for k, v in {
@@ -259,7 +285,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise DomainError("no_updates", "No fields to update.", 422)
         return svc.update_patient(body.command_id, body.expected_revision, patient_id, updates)
 
-    @app.delete(prefix + "/patients/{patient_id}")
+    @app.delete(prefix + "/patients/{patient_id}", response_model=PatientMutationRead)
     def delete_patient(patient_id: str, body: PatientDeleteRequest, svc=Depends(service)):
         return svc.delete_patient(
             body.command_id, body.expected_revision, patient_id, body.reason,

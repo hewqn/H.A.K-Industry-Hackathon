@@ -73,12 +73,24 @@ threshold, family/version, provenance/calibration and evidence. Apply the thresh
 to `predict_proba()[:, 1]`; plain pipeline `.predict()` still uses 0.5. Logistic
 evidence is the fitted scaled-feature contribution to log-odds plus the real intercept.
 Forest evidence is recorded inputs, explicitly without patient-specific attribution.
-The API reads JSON only; it never deserializes models, fits or infers during requests.
+Normal API reads consume JSON and do not deserialize or fit models. Patient POST/PUT
+lazily load the exact trusted frozen publication and infer all three outputs before
+saving. Compatible persisted events replay their risk envelopes without model loading;
+legacy or previous-publication events re-score their facts with the current frozen
+pipelines. No application interaction fits a model.
 
-The frontend displays the outputs and passes `model_risks` through `AnatomyProps`.
-The engineer owns the viewer/geometry. Both kidney meshes share `kidney_risk`;
-left/right-specific targets are absent. Organ colors remain EF/creatinine measurement
-indicators, separate from relative model bands.
+Every snapshot row and patient response includes the same `model_risks` envelope.
+The dashboard displays all three outputs and passes the independent heart/kidney scores
+to the existing `AnatomyViewer`; both kidney meshes share `kidney_risk`. Risk Score uses
+these model scores; Tissue State uses EF/creatinine measurement indicators. Relative
+bands are separate from both classification thresholds and queue-priority bands.
+The engineer owns geometry; left/right-specific targets are absent. The alternate
+`anatomy/adapter.ts` is an unused future handoff, not the current rendering path.
+
+The toolbar supports Add patient, confirmed Delete, refresh and selection outside
+Top 25. POST/PUT save scored baseline facts; DELETE removes live prediction/workflow
+indexes while retaining audit history. See [ML/dashboard audit](ml-dashboard-audit.md)
+for the model trace, findings, request lifecycle and verified boundaries.
 
 ## Database handoff and remaining work
 

@@ -27,10 +27,10 @@ export default function AnatomyView({
           <h3>Call list</h3>
           <p className="weight-desc">
             {queueMode === "model"
-              ? "ML model ranks by predicted risk."
+              ? patient.model_risks ? "Frozen patient model ranks by uncalibrated score." : "ML unavailable; rule points order the list."
               : queueMode === "oldest"
                 ? "Oldest first. The baseline to beat."
-                : `ML base + heart weight ${queueMode}. EF below 35% is worth ${queueMode}.`}
+                : `${patient.model_risks ? "ML score + normalized rule points" : "Rule points"}. EF below 35% is worth ${queueMode} points.`}
           </p>
         </div>
         <div className="weight-buttons" role="group" aria-label="Call list mode">

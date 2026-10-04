@@ -29,6 +29,14 @@ export default function ScoreOutput({
   return (
     <div className="score-strip">
       <div className="score-strip-head">
+        {patient.score_kind === "model_output" && <span className="score-metric">
+          <span className="risk-score-number">{patient.score.toFixed(3)}</span>
+          <span className="risk-score-label">Patient ML score</span>
+        </span>}
+        {patient.score_kind === "combined" && <span className="score-metric" title="Patient ML score + rule points divided by the points ceiling">
+          <span className="risk-score-number">{patient.combined_score?.toFixed(3) ?? "—"}</span>
+          <span className="risk-score-label">Combined score</span>
+        </span>}
         {(patient.score_kind === "points" || patient.score_kind === "combined") && (
           <span className="score-metric">
             <span className="risk-score-number">{patient.score}</span>

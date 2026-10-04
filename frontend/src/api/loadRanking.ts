@@ -38,6 +38,8 @@ interface ApiRow {
   score: ApiScore;
   facts: ApiFacts;
   workflow_state?: Patient["workflow_state"];
+  model_risks?: Patient["model_risks"];
+  override?: { action: string } | null;
 }
 
 interface Snapshot {
@@ -90,16 +92,13 @@ export type QueueMode = "model" | "oldest" | 2 | 3;
 const snapshotCache = new Map<string, Snapshot>();
 let cacheScope = "";
 let cacheRevision: number | undefined;
-const rankingInflight = new Map<QueueMode, Promise<LoadedRanking>>();
+const rankingInflight = new Map<string, Promise<LoadedRanking>>();
 let rankingQueue: Promise<unknown> = Promise.resolve();
 let oldestRankCache: Record<string, number> | null = null;
-let organRiskCache: { heart: Record<string, number>; kidney: Record<string, number> } | null =
-  null;
 
 function clearSnapshotCache() {
   snapshotCache.clear();
   oldestRankCache = null;
-  organRiskCache = null;
   cacheScope = "";
   cacheRevision = undefined;
 }
@@ -201,7 +200,11 @@ function adaptRow(
     priority_band: row.priority_band,
     score: row.score.value,
     score_kind: scoreKind,
-    organ_risk: organRisk,
+    model_risks: row.model_risks,
+    organ_risk: row.model_risks ? {
+      heart: row.model_risks.heart_risk.score,
+      kidney: row.model_risks.kidney_risk.score,
+    } : organRisk,
     facts: {
       age: facts.age,
       ejection_fraction: ef,
@@ -262,14 +265,6 @@ export function apiMethodForQueue(mode: QueueMode, mlReady: boolean): RankingMet
   return "points_v1";
 }
 
-function scoreIndex(snapshot: Snapshot): Record<string, number> {
-  const scores: Record<string, number> = {};
-  for (const row of snapshot.rows ?? snapshot.queue ?? []) {
-    scores[row.patient_id] = row.score.value;
-  }
-  return scores;
-}
-
 function rankIndex(snapshot: Snapshot): Record<string, number> {
   const ranks: Record<string, number> = {};
   for (const row of snapshot.rows ?? snapshot.queue ?? []) {
@@ -278,39 +273,15 @@ function rankIndex(snapshot: Snapshot): Record<string, number> {
   return ranks;
 }
 
-function organRiskFor(
-  patientId: string,
-  organRisks: { heart: Record<string, number>; kidney: Record<string, number> },
-): Patient["organ_risk"] {
-  const heart = organRisks.heart[patientId];
-  const kidney = organRisks.kidney[patientId];
-  if (heart == null || kidney == null) return undefined;
-  return { heart, kidney };
-}
-
-function fromSnapshot(
-  snapshot: Snapshot,
-  organRisks: { heart: Record<string, number>; kidney: Record<string, number> } = {
-    heart: {},
-    kidney: {},
-  },
-  oldestRanks: Record<string, number> = {},
-): LoadedRanking {
-  const patients = (snapshot.queue ?? snapshot.rows ?? []).map((row) =>
-    adaptRow(
-      row,
-      organRiskFor(row.patient_id, organRisks),
-      oldestRanks[row.patient_id],
-      snapshot.method_id,
-    ),
-  );
+function fromSnapshot(snapshot: Snapshot, oldestRanks: Record<string, number> = {}): LoadedRanking {
+  // Keep the full eligible cohort for the patient picker. Top25Table alone
+  // applies queue capacity, so a newly added low-score patient stays inspectable.
   return {
-    patients, source: "api", method: snapshot.method_id as RankingMethod,
-    context: {
-      snapshot_id: snapshot.snapshot_id,
-      cohort_id: snapshot.cohort_id,
-      method_id: snapshot.method_id,
-    },
+    patients: (snapshot.rows ?? snapshot.queue ?? []).map((row) =>
+      adaptRow(row, undefined, oldestRanks[row.patient_id], snapshot.method_id)),
+    source: "api",
+    method: snapshot.method_id as RankingMethod,
+    context: { snapshot_id: snapshot.snapshot_id, cohort_id: snapshot.cohort_id, method_id: snapshot.method_id },
   };
 }
 
@@ -367,17 +338,6 @@ async function loadSnapshot(methodId: string, requireCurrentRevision = false): P
   return created;
 }
 
-async function loadOrganRisks(
-  mlReady: boolean,
-): Promise<{ heart: Record<string, number>; kidney: Record<string, number> }> {
-  if (!mlReady) return { heart: {}, kidney: {} };
-  if (organRiskCache) return organRiskCache;
-  const heart = await loadSnapshot("heart_risk");
-  const kidney = await loadSnapshot("kidney_risk");
-  organRiskCache = { heart: scoreIndex(heart), kidney: scoreIndex(kidney) };
-  return organRiskCache;
-}
-
 async function loadOldestRanks(): Promise<Record<string, number>> {
   if (oldestRankCache) return oldestRankCache;
   const snapshot = await loadSnapshot("oldest_first");
@@ -393,7 +353,6 @@ async function rankFromApi(
   observeCohort(await api<Cohort>("/cohorts/current"));
   // These calls create revisioned snapshots when absent. Serialize them and
   // obtain the displayed snapshot last, so comparisons cannot stale its grant.
-  const organRisks = await loadOrganRisks(mlReady);
   const oldestRanks = await loadOldestRanks();
 
   if ((mode === 2 || mode === 3) && mlReady) {
@@ -405,23 +364,33 @@ async function rankFromApi(
     const combined = allRows.map((row) => {
       const mlScore = row.score.value;
       const { points, evidence } = computePointsFromFacts(row.facts, weight);
-      return { row, mlScore, points, evidence, combined: mlScore + points / ceiling, mlRank: row.call_rank };
+      return { row, mlScore, points, evidence, combined: mlScore + points / ceiling, mlRank: row.model_rank };
     });
-    combined.sort((a, b) => b.combined - a.combined);
+    combined.sort((a, b) => {
+      // Keep explicit clinician pins ahead of automatic scores, in the backend's
+      // call order. Eligibility already excludes contacted/deferred patients.
+      const aPinned = a.row.override?.action === "pin";
+      const bPinned = b.row.override?.action === "pin";
+      if (aPinned && bPinned) return a.row.call_rank - b.row.call_rank;
+      if (aPinned !== bPinned) return aPinned ? -1 : 1;
+      return b.combined - a.combined;
+    });
 
     return {
-      patients: combined.slice(0, 25).map((item, idx) => {
+      patients: combined.map((item, idx) => {
         const base = adaptRow(
           item.row,
-          organRiskFor(item.row.patient_id, organRisks),
+          undefined,
           oldestRanks[item.row.patient_id],
           "patient_risk",
         );
         return {
           ...base,
           rank: idx + 1,
+          priority_band: idx < 25 ? "higher" as const : idx < 75 ? "elevated" as const : "lower" as const,
           score: item.points,
           score_kind: "combined" as const,
+          combined_score: item.combined,
           evidence: item.evidence,
           model_rank: item.mlRank,
         };
@@ -434,7 +403,7 @@ async function rankFromApi(
 
   const methodId = apiMethodForQueue(mode, mlReady);
   const snapshot = await loadSnapshot(methodId, true);
-  return fromSnapshot(snapshot, organRisks, oldestRanks);
+  return fromSnapshot(snapshot, oldestRanks);
 }
 
 async function rankFromCsv(mode: QueueMode): Promise<Patient[]> {
@@ -456,12 +425,14 @@ async function rankFromCsv(mode: QueueMode): Promise<Patient[]> {
   return patients.slice(0, 25);
 }
 
-async function loadRankingUncached(mode: QueueMode): Promise<LoadedRanking> {
+async function loadRankingUncached(mode: QueueMode, requireApi = false): Promise<LoadedRanking> {
   try {
     const result = await rankFromApi(mode);
-    if (result.patients.length === 0) throw new Error("empty");
     return result;
-  } catch {
+  } catch (error) {
+    // A committed patient change must never fall back to the original CSV and
+    // resurrect a deleted record. Model/API validation failures are surfaced too.
+    if (requireApi || error instanceof ApiError) throw error;
     clearSnapshotCache();
     const patients = await rankFromCsv(mode);
     return {
@@ -473,15 +444,28 @@ async function loadRankingUncached(mode: QueueMode): Promise<LoadedRanking> {
   }
 }
 
-export function loadRanking(mode: QueueMode): Promise<LoadedRanking> {
-  // StrictMode may request the same list twice. Deduplicate complete loads and
-  // serialize mode changes to avoid concurrent command-revision conflicts.
-  const pending = rankingInflight.get(mode);
+export function loadRanking(
+  mode: QueueMode,
+  options: { forceFresh?: boolean; requireApi?: boolean } = {},
+): Promise<LoadedRanking> {
+  const key = `${mode}:${!!options.forceFresh}:${!!options.requireApi}`;
+  const pending = rankingInflight.get(key);
   if (pending) return pending;
-  const request = rankingQueue.then(() => loadRankingUncached(mode)).finally(() => {
-    rankingInflight.delete(mode);
-  });
-  rankingInflight.set(mode, request);
+  const request = withRankingLock(async () => {
+    if (options.forceFresh) clearSnapshotCache();
+    return loadRankingUncached(mode, options.requireApi);
+  }).finally(() => rankingInflight.delete(key));
+  rankingInflight.set(key, request);
+  return request;
+}
+
+/** Serialize patient writes with revisioned ranking commands in this browser. */
+export function withRankingLock<T>(operation: () => Promise<T>): Promise<T> {
+  const request = rankingQueue.then(operation);
   rankingQueue = request.catch(() => undefined);
   return request;
+}
+
+export function invalidateRanking() {
+  clearSnapshotCache();
 }

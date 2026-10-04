@@ -4,7 +4,7 @@ export default function CaseReport({ report }: { report: CaseReportData }) {
   return (
     <section className="case-report" aria-label="Case result">
       <p className="case-cohort">
-        {report.kept} records · {report.dropped} dropped · later deaths in top 25
+        Original {report.kept} records · {report.dropped} dropped · benchmark deaths in top 25
       </p>
       <div className="case-metrics">
         <div>
@@ -12,11 +12,11 @@ export default function CaseReport({ report }: { report: CaseReportData }) {
           <b>{report.oldestDeaths}</b>
         </div>
         <div>
-          <span>Weight 2</span>
+          <span>Points · Weight 2</span>
           <b>{report.weight2Deaths}</b>
         </div>
         <div>
-          <span>Weight 3</span>
+          <span>Points · Weight 3</span>
           <b>{report.weight3Deaths}</b>
         </div>
         <div>
@@ -26,6 +26,7 @@ export default function CaseReport({ report }: { report: CaseReportData }) {
           </b>
         </div>
       </div>
+      <p className="case-cohort">Fixed points benchmark. ML + points lists use a separate ordering.</p>
     </section>
   );
 }

@@ -118,7 +118,9 @@ export default function Top25Table({
                     </td>
                     <td>{patient.facts.age}</td>
                     <td className="score-cell">
-                      {patient.score_kind === "model_output"
+                      {patient.score_kind === "combined"
+                        ? patient.combined_score?.toFixed(3) ?? "—"
+                        : patient.score_kind === "model_output"
                         ? patient.score.toFixed(3)
                         : patient.score_kind === "age"
                           ? "—"

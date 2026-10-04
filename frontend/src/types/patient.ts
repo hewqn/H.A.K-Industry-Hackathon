@@ -1,3 +1,5 @@
+import type { components } from "../api/generated";
+
 export type OrganId = "heart" | "kidney_left" | "kidney_right";
 export type IndicatorState = "flagged" | "not_flagged" | "unknown";
 export type PriorityBand = "higher" | "elevated" | "lower";
@@ -19,6 +21,10 @@ export interface Patient {
   score_kind: "points" | "model_output" | "age" | "combined";
   /** Pure ML rank (set when score_kind is "combined"). */
   model_rank?: number;
+  /** Browser combination = patient model score + normalized rule points (0–2). */
+  combined_score?: number;
+  /** Shared versioned ML interface; scores are uncalibrated outcome proxies. */
+  model_risks?: components["schemas"]["ModelRisks"] | null;
   /** Frozen ML heart_risk / kidney_risk. Used only by Risk Score colour. */
   organ_risk?: {
     heart: number;

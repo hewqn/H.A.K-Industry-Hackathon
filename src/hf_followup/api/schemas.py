@@ -9,7 +9,7 @@ from hf_followup.domain.predictions import ModelFamily, ModelRisks, RiskTask
 
 
 class Request(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
 
 
 class Command(Request):
@@ -129,6 +129,15 @@ class Facts(BaseModel):
     smoking: bool
 
 
+class PatientMutationRead(BaseModel):
+    """Confirmed receipt: scored add/edit, or deletion without a facts/risk envelope."""
+    patient_id: str
+    revision: int
+    sync_status: str
+    facts: Facts | None = None
+    model_risks: ModelRisks | None = None
+
+
 class Evidence(BaseModel):
     id: str
     field: str
@@ -200,6 +209,8 @@ class QueueRow(BaseModel):
     reason: str
     workflow_state: str
     override: Override | None
+    # Snapshot-bound outputs for anatomy, patient details and voice tools alike.
+    model_risks: ModelRisks | None = None
 
 
 class Snapshot(BaseModel):

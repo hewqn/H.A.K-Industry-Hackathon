@@ -103,7 +103,7 @@ def score_record(record: dict, method_id: str, predictions: dict) -> dict:
         "explanation_method": model["explanation_method"],
         "version": model["model_version"],
         "prediction_provenance": prediction["prediction_provenance"],
-        "intercept": model.get("intercept"),
+        "intercept": prediction.get("intercept"),
         "calibration_status": "not_calibrated",
     }
 
