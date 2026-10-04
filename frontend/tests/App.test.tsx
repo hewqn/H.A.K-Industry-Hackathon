@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../src/App";
 import type { LoadedRanking, RankingContext } from "../src/api/loadRanking";
@@ -158,6 +158,7 @@ it("allows adding to an empty API cohort and disables CRUD in local CSV preview"
   loaders.report.mockResolvedValue(null);
   const view = render(<App />);
   await screen.findByText("No eligible patients. Add a patient to begin.");
+  expect(screen.getByRole("group", { name: "How organs are coloured" })).toBeTruthy();
   expect((screen.getByRole("button", { name: "Add patient" }) as HTMLButtonElement).disabled).toBe(false);
   expect((screen.getByRole("button", { name: "Delete patient" }) as HTMLButtonElement).disabled).toBe(true);
   view.unmount();
@@ -165,4 +166,86 @@ it("allows adding to an empty API cohort and disables CRUD in local CSV preview"
   render(<App />);
   await screen.findByText("Patient changes require the local API.");
   expect((screen.getByRole("button", { name: "Add patient" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("explains all baseline inputs, score types and project scope in the reference tabs", async () => {
+  loaders.ranking.mockResolvedValue(ranking("HF-0001"));
+  loaders.report.mockResolvedValue(null);
+  render(<App />);
+  await screen.findByRole("region", { name: "ML outputs" });
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("tab", { name: "Field guide" }));
+  const guide = screen.getByRole("tabpanel", { name: "Field guide" });
+  expect(within(guide).getByRole("heading", { level: 1 }).textContent).toBe("Field guide");
+  const inputs = within(guide).getByRole("table", { name: "All eleven patient input fields, their types, units and meanings" });
+  for (const field of ["age", "ejection_fraction", "serum_creatinine", "serum_sodium", "platelets",
+    "creatinine_phosphokinase", "anaemia", "diabetes", "high_blood_pressure", "smoking", "sex"])
+    expect(within(inputs).getByText(field, { selector: "code", exact: true })).toBeTruthy();
+  expect(guide.textContent).toContain("A score of 0.700 is not a validated 70% death probability");
+  expect(guide.textContent).toContain("at or above classification_threshold");
+  expect(guide.textContent).toContain("Patient ML score + points ÷ (heart weight + 6)");
+  expect(guide.textContent).toContain("0 = female, 1 = male");
+  expect(document.title).toBe("Field guide · H.A.K");
+  fireEvent.click(screen.getByRole("tab", { name: "About the program" }));
+  const overview = screen.getByRole("tabpanel", { name: "About the program" });
+  expect(within(overview).getByRole("heading", { level: 1 }).textContent).toBe("About the program");
+  expect(overview.textContent).toContain("no organ-specific outcomes");
+  expect(overview.textContent).toContain("dashboard interactions do not train models");
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(loaders.ranking).toHaveBeenCalledTimes(1);
+  expect(loaders.save).not.toHaveBeenCalled();
+  expect(loaders.remove).not.toHaveBeenCalled();
+});
+
+it("preserves selection, ordering and mounted viewer/assistant nodes when reading other tabs", async () => {
+  const cohort = ranking("HF-0001");
+  cohort.patients.push({ ...ranking("HF-0002").patients[0], rank: 2 });
+  loaders.ranking.mockResolvedValue(cohort);
+  loaders.report.mockResolvedValue(null);
+  render(<App />);
+  await screen.findByRole("region", { name: "ML outputs" });
+  fireEvent.change(screen.getByRole("combobox", { name: "Select patient from cohort" }), { target: { value: "HF-0002" } });
+  fireEvent.click(screen.getByRole("button", { name: "Oldest" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "Follow-up assistant" }).textContent).not.toContain("Changing queue"));
+  const assistant = screen.getByRole("region", { name: "Follow-up assistant" });
+  const viewer = screen.getByText("3D viewer");
+  const loadCount = loaders.ranking.mock.calls.length;
+  fireEvent.click(screen.getByRole("tab", { name: "Field guide" }));
+  expect(screen.queryByRole("region", { name: "Follow-up assistant" })).toBeNull();
+  expect(document.body.contains(assistant)).toBe(true);
+  fireEvent.click(screen.getByRole("tab", { name: "About the program" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Dashboard" }));
+  expect(screen.getByRole("region", { name: "Follow-up assistant" })).toBe(assistant);
+  expect(screen.getByText("3D viewer")).toBe(viewer);
+  expect((screen.getByRole("combobox", { name: "Select patient from cohort" }) as HTMLSelectElement).value).toBe("HF-0002");
+  expect(screen.getByRole("button", { name: "Oldest" }).getAttribute("aria-pressed")).toBe("true");
+  expect(loaders.ranking).toHaveBeenCalledTimes(loadCount);
+  expect(loaders.report).toHaveBeenCalledTimes(1);
+});
+
+it("supports manual keyboard tab navigation with correct panel associations", async () => {
+  loaders.ranking.mockResolvedValue(ranking("HF-0001"));
+  loaders.report.mockResolvedValue(null);
+  render(<App />);
+  await screen.findByRole("region", { name: "ML outputs" });
+  const dashboard = screen.getByRole("tab", { name: "Dashboard" });
+  const guide = screen.getByRole("tab", { name: "Field guide" });
+  const about = screen.getByRole("tab", { name: "About the program" });
+  dashboard.focus();
+  fireEvent.keyDown(dashboard, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(guide);
+  expect(dashboard.getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(guide, { key: "End" });
+  expect(document.activeElement).toBe(about);
+  fireEvent.keyDown(about, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(dashboard);
+  fireEvent.keyDown(dashboard, { key: "ArrowLeft" });
+  expect(document.activeElement).toBe(about);
+  fireEvent.keyDown(about, { key: "Home" });
+  expect(document.activeElement).toBe(dashboard);
+  fireEvent.click(guide);
+  expect(guide.getAttribute("aria-selected")).toBe("true");
+  expect(guide.tabIndex).toBe(0);
+  expect(dashboard.tabIndex).toBe(-1);
+  expect(guide.getAttribute("aria-controls")).toBe(screen.getByRole("tabpanel", { name: "Field guide" }).id);
 });

@@ -132,6 +132,9 @@ function OrganCanvas({
           <FrameOrgan distance={distance} />
         </Canvas>
 
+        {/* Visible labels identify the existing geometry without relying on tint. */}
+        <span className="viewport-organ-label">{label}</span>
+
         <button
           type="button"
           className="viewport-expand"

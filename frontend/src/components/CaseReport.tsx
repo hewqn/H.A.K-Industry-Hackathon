@@ -3,6 +3,7 @@ import type { CaseReport as CaseReportData } from "../api/loadCaseReport";
 export default function CaseReport({ report }: { report: CaseReportData }) {
   return (
     <section className="case-report" aria-label="Case result">
+      <div className="panel-heading"><div><p className="eyebrow">Original public cohort</p><h3>Historical benchmark</h3></div></div>
       <p className="case-cohort">
         Original {report.kept} records · {report.dropped} dropped · benchmark deaths in top 25
       </p>

@@ -40,7 +40,7 @@ export default function ScoreOutput({
         {(patient.score_kind === "points" || patient.score_kind === "combined") && (
           <span className="score-metric">
             <span className="risk-score-number">{patient.score}</span>
-            <span className="risk-score-label">{patient.score_kind === "combined" ? "Pts" : "Score"}</span>
+            <span className="risk-score-label">Rule points</span>
           </span>
         )}
       </div>
