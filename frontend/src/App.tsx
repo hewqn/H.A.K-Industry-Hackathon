@@ -11,9 +11,13 @@ import { loadRanking, type QueueMode, type RankingContext } from "./api/loadRank
 import { loadCaseReport, type CaseReport as CaseReportData } from "./api/loadCaseReport";
 import type { Patient, OrganId } from "./types/patient";
 import { type ColorMode } from "./utils/organColors";
+import InterfaceIcon from "./components/InterfaceIcon";
+import WorkspaceTabs, { type WorkspaceTab } from "./components/WorkspaceTabs";
+import { FieldGuide, ProgramOverview } from "./components/ProjectGuide";
 import "./App.css";
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("dashboard");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
@@ -76,6 +80,11 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const title = activeTab === "dashboard" ? "Patient review" : activeTab === "guide" ? "Field guide" : "About the program";
+    document.title = `${title} · H.A.K`;
+  }, [activeTab]);
+
   const selected = patients.find((p) => p.patient_id === selectedId) ?? null;
   const preview =
     patients.find((p) => p.patient_id === previewId && p.patient_id !== selectedId) ??
@@ -91,102 +100,103 @@ export default function App() {
 
   return (
     <div className="app">
-      <nav className="topnav">
-        <div className="topnav-left">
-          <span className="logo">H.A.K The Heart Failure</span>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
+      <header className="app-header">
+        <div className="header-inner">
+          <div className="brand">
+            <span className="brand-mark"><InterfaceIcon name="pulse" /></span>
+            <div><span className="brand-name">H.A.K</span><span className="brand-description">Heart failure follow-up</span></div>
+          </div>
+          <div className="header-status">
+            <span className="prototype-tag">Research prototype</span>
+            <span className={`connection-status ${rankingError ? "is-error" : source === "api" ? "is-connected" : "is-local"}`}>
+              <span className="status-dot" />
+              {rankingLoading ? "Refreshing data" : rankingError ? "Data unavailable" : source === "api" ? "API data" : "Local CSV preview"}
+            </span>
+          </div>
         </div>
-        <div className="patient-toolbar">
-          <label>Patient
-            <select aria-label="Select patient from cohort" value={selectedId ?? ""} disabled={rankingLoading}
-              onChange={(event) => { setSelectedId(event.target.value); setFocusedOrgan(null); }}>
-              {!selectedId && <option value="">No patients</option>}
-              {patients.map((patient) => <option key={patient.patient_id} value={patient.patient_id}>
-                {patient.patient_id} · rank {patient.rank}{patient.rank > 25 ? " · outside Top 25" : ""}
-              </option>)}
-            </select>
-          </label>
-          <button disabled={rankingLoading} onClick={() => refreshPatients()}>Refresh patients</button>
-          <PatientActions patient={selected} enabled={source === "api" && !rankingError} loading={rankingLoading}
-            onBusy={setMutationBusy} onChanged={refreshPatients} />
-        </div>
-      </nav>
+        <div className="navigation-inner"><WorkspaceTabs active={activeTab} onChange={setActiveTab} /></div>
+      </header>
 
-      <div className="legend-strip">
-        <div className="view-toggle" role="group" aria-label="How organs are coloured">
-          <button
-            className={colorMode === "risk" ? "active" : ""}
-            onClick={() => setColorMode("risk")}
-          >
-            Risk Score
-          </button>
-          <button
-            className={colorMode === "anatomy" ? "active" : ""}
-            onClick={() => setColorMode("anatomy")}
-          >
-            Tissue State
-          </button>
-        </div>
-        <ColorLegend
-          mode={colorMode}
-          queueMode={queueMode}
-          patient={selected}
-          preview={preview}
-          base={!applyColour.heart && !applyColour.kidney}
-        />
-      </div>
-
-      <main className="main-content">
-        {!rankingLoading && rankingError && <p role="alert">{rankingError}</p>}
-        {selected ? (
-          <div className="workspace">
-            <div className="organ-viewer">
-              <AnatomyViewer
-                organs={selected.organs}
-                focusedOrgan={focusedOrgan}
-                onOrganSelect={setFocusedOrgan}
-                colorMode={colorMode}
-                organRisk={selected.organ_risk}
-                applyColour={applyColour}
-                onApplyColourChange={(organ, on) =>
-                  setApplyColour((current) => ({ ...current, [organ]: on }))
-                }
-              />
+      <main id="main-content" className="main-content" tabIndex={-1}>
+        {/* Keep the workspace mounted: educational tabs never reset patient,
+            camera, form, ranking, transcript or provider-session state. */}
+        <section id="panel-dashboard" role="tabpanel" tabIndex={0} aria-labelledby="tab-dashboard" hidden={activeTab !== "dashboard"}>
+          <div className="page-heading">
+            <div><p className="eyebrow">Follow-up workspace</p><h1>Patient review</h1>
+              <p className="page-description">Prioritize follow-up. Inspect the measurements. Understand the evidence.</p>
             </div>
-            <div className="workspace-side">
-              <AnatomyView
-                key={selected.patient_id}
-                patient={selected}
-                queueMode={queueMode}
-                onQueueModeChange={setQueueMode}
-              />
-              <ModelRiskPanel patient={selected} />
-              {selected.rank > 25 && <p className="patient-queue-note">This patient is outside the current Top 25 (rank {selected.rank}).</p>}
-              {caseReport && <CaseReport report={caseReport} />}
-              <VoicePanel
-                key={`${rankingLoading ? "loading" : rankingContext?.snapshot_id ?? "local"}:${selectedId}:${queueMode}`}
-                context={rankingContext}
-                patient={selected}
-                patients={patients}
-                loading={rankingLoading}
-                onSelectPatient={setSelectedId}
-                onFocusOrgan={setFocusedOrgan}
-              />
-              <Top25Table
-                patients={patients}
-                selectedId={selected.patient_id}
-                onSelect={setSelectedId}
-                onPreview={setPreviewId}
-              />
-              <PatientRecord
-                patient={selected}
-                focusedOrgan={focusedOrgan}
-                onOrganSelect={setFocusedOrgan}
-              />
+            <div className="cohort-summary" aria-label="Current list summary">
+              <div><strong>{Math.min(patients.length, 25)}</strong><span>in the call list</span></div>
+              <div><strong>{patients.length}</strong><span>{source === "api" ? "eligible records" : "preview records"}</span></div>
             </div>
           </div>
-        ) : (
-          !rankingError && <div className="empty">{rankingLoading ? "Loading the call list" : "No eligible patients. Add a patient to begin."}</div>
-        )}
+
+          <div className="patient-toolbar">
+            <label className="patient-picker">Select patient
+              <select aria-label="Select patient from cohort" value={selectedId ?? ""} disabled={rankingLoading}
+                onChange={(event) => { setSelectedId(event.target.value); setFocusedOrgan(null); }}>
+                {!selectedId && <option value="">No patients</option>}
+                {patients.map((patient) => <option key={patient.patient_id} value={patient.patient_id}>
+                  {patient.patient_id} · rank {patient.rank}{patient.rank > 25 ? " · outside Top 25" : ""}
+                </option>)}
+              </select>
+            </label>
+            <button className="button-secondary refresh-button" disabled={rankingLoading} onClick={() => refreshPatients()}>
+              <InterfaceIcon name="refresh" />Refresh patients
+            </button>
+            <PatientActions patient={selected} enabled={source === "api" && !rankingError} loading={rankingLoading}
+              onBusy={setMutationBusy} onChanged={refreshPatients} />
+          </div>
+
+          {!rankingLoading && rankingError && <p role="alert" className="workspace-error">{rankingError}</p>}
+          {/* Preserve the original colour controls even before a patient loads. */}
+          {!selected && <section className="empty-visual-settings" aria-label="Visualization settings">
+            <div><p className="eyebrow">Visualization settings</p><div className="view-toggle" role="group" aria-label="How organs are coloured">
+              <button className={colorMode === "risk" ? "active" : ""} aria-pressed={colorMode === "risk"} onClick={() => setColorMode("risk")}>Risk Score</button>
+              <button className={colorMode === "anatomy" ? "active" : ""} aria-pressed={colorMode === "anatomy"} onClick={() => setColorMode("anatomy")}>Tissue State</button>
+            </div></div>
+            <ColorLegend mode={colorMode} queueMode={queueMode} patient={selected} preview={preview} base={!applyColour.heart && !applyColour.kidney} />
+          </section>}
+          {selected ? <>
+            <AnatomyView key={selected.patient_id} patient={selected} queueMode={queueMode} onQueueModeChange={setQueueMode} />
+            {selected.rank > 25 && <p className="patient-queue-note">This patient is outside the current Top 25 (rank {selected.rank}).</p>}
+            <div className="workspace" aria-busy={rankingLoading}>
+              <div className="queue-column">
+                <Top25Table patients={patients} selectedId={selected.patient_id} onSelect={setSelectedId} onPreview={setPreviewId} />
+                {caseReport && <CaseReport report={caseReport} />}
+              </div>
+              <section className="anatomy-region" aria-label="Anatomical view">
+                <div className="panel-heading"><div><p className="eyebrow">Patient visualization</p><h2>Anatomical view</h2></div><InterfaceIcon name="layers" /></div>
+                <div className="view-toggle" role="group" aria-label="How organs are coloured">
+                  <button className={colorMode === "risk" ? "active" : ""} aria-pressed={colorMode === "risk"} onClick={() => setColorMode("risk")}>Risk Score</button>
+                  <button className={colorMode === "anatomy" ? "active" : ""} aria-pressed={colorMode === "anatomy"} onClick={() => setColorMode("anatomy")}>Tissue State</button>
+                </div>
+                <ColorLegend mode={colorMode} queueMode={queueMode} patient={selected} preview={preview} base={!applyColour.heart && !applyColour.kidney} />
+                <div className="organ-viewer">
+                  <AnatomyViewer organs={selected.organs} focusedOrgan={focusedOrgan} onOrganSelect={setFocusedOrgan}
+                    colorMode={colorMode} organRisk={selected.organ_risk} applyColour={applyColour}
+                    onApplyColourChange={(organ, on) => setApplyColour((current) => ({ ...current, [organ]: on }))} />
+                </div>
+                <p className="viewer-caption">Drag to rotate · Scroll to zoom · Select an organ to focus</p>
+              </section>
+              <div className="patient-detail-column">
+                <ModelRiskPanel patient={selected} />
+                <PatientRecord patient={selected} focusedOrgan={focusedOrgan} onOrganSelect={setFocusedOrgan} />
+              </div>
+              <div className="assistant-region">
+                <VoicePanel key={`${rankingLoading ? "loading" : rankingContext?.snapshot_id ?? "local"}:${selectedId}:${queueMode}`}
+                  context={rankingContext} patient={selected} patients={patients} loading={rankingLoading}
+                  onSelectPatient={setSelectedId} onFocusOrgan={setFocusedOrgan} />
+              </div>
+            </div>
+          </> : !rankingError && <div className="empty">
+            <span className="empty-icon"><InterfaceIcon name="queue" /></span>
+            <p>{rankingLoading ? "Loading the call list" : "No eligible patients. Add a patient to begin."}</p>
+          </div>}
+        </section>
+        <section id="panel-guide" role="tabpanel" tabIndex={0} aria-labelledby="tab-guide" hidden={activeTab !== "guide"}><FieldGuide /></section>
+        <section id="panel-about" role="tabpanel" tabIndex={0} aria-labelledby="tab-about" hidden={activeTab !== "about"}><ProgramOverview /></section>
       </main>
 
       <footer className="app-footer">
