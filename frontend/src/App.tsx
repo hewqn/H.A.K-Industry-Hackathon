@@ -7,8 +7,11 @@ import CaseReport from "./components/CaseReport";
 import VoicePanel from "./components/VoicePanel";
 import PatientActions from "./components/PatientActions";
 import ModelRiskPanel from "./components/ModelRiskPanel";
+import LoginPage from "./components/LoginPage";
+import { isAdmin, isLoggedIn, logout, restoreSession } from "./auth";
 import { loadRanking, type QueueMode, type RankingContext } from "./api/loadRanking";
 import { loadCaseReport, type CaseReport as CaseReportData } from "./api/loadCaseReport";
+import { loadDeathIndex } from "./utils/scoring";
 import type { Patient, OrganId } from "./types/patient";
 import { type ColorMode } from "./utils/organColors";
 import InterfaceIcon from "./components/InterfaceIcon";
@@ -18,6 +21,9 @@ import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("dashboard");
+  const [signedIn, setSignedIn] = useState(isLoggedIn());
+  const [admin, setAdmin] = useState(isAdmin());
+  const [deaths, setDeaths] = useState<Record<string, boolean>>({});
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
@@ -37,24 +43,52 @@ export default function App() {
   // Switching modes immediately disables and ends the old voice session, before
   // the next ranking arrives. A cancelled response cannot restore its context.
   const rankingLoading = mutationBusy || loadedMode !== queueMode || loadedVersion !== dataVersion;
+  const [sessionReady, setSessionReady] = useState(!isLoggedIn());
+
+  useEffect(() => {
+    let cancelled = false;
+    restoreSession().then((session) => {
+      if (cancelled) return;
+      setSignedIn(session.signedIn);
+      setAdmin(session.admin);
+      setSessionReady(true);
+    });
+    const lost = () => {
+      logout();
+      setSignedIn(false);
+      setAdmin(false);
+    };
+    window.addEventListener("hak-auth-lost", lost);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("hak-auth-lost", lost);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     loadRanking(queueMode, { forceFresh: dataVersion > 0, requireApi: dataVersion > 0 }).then(({ patients: ranked, source: nextSource, method: nextMethod, context }) => {
       if (cancelled) return;
-      setPatients(ranked);
+      setPatients(
+        ranked.map((patient) => ({
+          ...patient,
+          later_death: patient.patient_id in deaths ? deaths[patient.patient_id] : null,
+        })),
+      );
       setSource(nextSource);
       setMethod(nextMethod);
       setRankingContext(context);
       setLoadedMode(queueMode);
       setLoadedVersion(dataVersion);
       setRankingError("");
-      setSelectedId((current) =>
-        current && ranked.some((patient) => patient.patient_id === current)
-          ? current
-          : (ranked[0]?.patient_id ?? null),
-      );
+      setSelectedId((current) => {
+        if (queueMode !== loadedMode) return ranked[0]?.patient_id ?? null;
+        if (current && ranked.some((patient) => patient.patient_id === current)) {
+          return current;
+        }
+        return ranked[0]?.patient_id ?? null;
+      });
       setPreviewId(null);
     }).catch(() => {
       if (cancelled) return;
@@ -68,7 +102,19 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [queueMode, dataVersion]);
+  }, [queueMode, dataVersion, deaths]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadDeathIndex().then((index) => {
+      if (!cancelled) setDeaths(index);
+    }).catch(() => {
+      if (!cancelled) setDeaths({});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,7 +124,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dataVersion]);
 
   useEffect(() => {
     const title = activeTab === "dashboard" ? "Patient review" : activeTab === "guide" ? "Field guide" : "About the program";
@@ -98,6 +144,14 @@ export default function App() {
     setDataVersion((version) => version + 1);
   }
 
+  if (!sessionReady) {
+    return <div className="empty">Checking session</div>;
+  }
+
+  if (!signedIn) {
+    return <LoginPage onLoggedIn={() => { setSignedIn(true); setAdmin(isAdmin()); }} />;
+  }
+
   return (
     <div className="app">
       <a className="skip-link" href="#main-content">Skip to main content</a>
@@ -108,11 +162,13 @@ export default function App() {
             <div><span className="brand-name">H.A.K</span><span className="brand-description">Heart failure follow-up</span></div>
           </div>
           <div className="header-status">
+            {admin && <span className="admin-badge">Admin</span>}
             <span className="prototype-tag">Research prototype</span>
             <span className={`connection-status ${rankingError ? "is-error" : source === "api" ? "is-connected" : "is-local"}`}>
               <span className="status-dot" />
               {rankingLoading ? "Refreshing data" : rankingError ? "Data unavailable" : source === "api" ? "API data" : "Local CSV preview"}
             </span>
+            <button className="button-secondary logout-button" onClick={() => { logout(); setSignedIn(false); setAdmin(false); }}>Log out</button>
           </div>
         </div>
         <div className="navigation-inner"><WorkspaceTabs active={activeTab} onChange={setActiveTab} /></div>
@@ -145,8 +201,10 @@ export default function App() {
             <button className="button-secondary refresh-button" disabled={rankingLoading} onClick={() => refreshPatients()}>
               <InterfaceIcon name="refresh" />Refresh patients
             </button>
-            <PatientActions patient={selected} enabled={source === "api" && !rankingError} loading={rankingLoading}
-              onBusy={setMutationBusy} onChanged={refreshPatients} />
+            {admin && (
+              <PatientActions patient={selected} enabled={source === "api" && !rankingError} loading={rankingLoading}
+                onBusy={setMutationBusy} onChanged={refreshPatients} />
+            )}
           </div>
 
           {!rankingLoading && rankingError && <p role="alert" className="workspace-error">{rankingError}</p>}
