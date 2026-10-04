@@ -24,7 +24,8 @@ export async function loadCaseReport(): Promise<CaseReport | null> {
     ]);
     const metrics = models.reports.benchmark.metrics;
     return {
-      kept: cohort.accepted_count ?? metrics.oldest_first.n,
+      // Evaluation remains tied to the original labelled cohort after live CRUD.
+      kept: metrics.oldest_first.n,
       dropped: cohort.missing_rows ?? 0,
       oldestDeaths: metrics.oldest_first.captured_outcomes,
       weight2Deaths: metrics.points_v1.captured_outcomes,

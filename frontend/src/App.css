@@ -1191,3 +1191,50 @@ td.warn {
     scroll-behavior: auto !important;
   }
 }
+
+/* Patient controls reuse the existing palette; native dialogs provide focus trapping. */
+.topnav { height: auto; min-height: 56px; padding-top: 10px; padding-bottom: 10px; gap: 16px; flex-wrap: wrap; }
+.patient-toolbar, .patient-action-buttons, .patient-dialog-buttons {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.patient-toolbar { margin-left: auto; justify-content: flex-end; }
+.patient-toolbar label { display: flex; align-items: center; gap: 8px; }
+.patient-toolbar button, .patient-dialog button, .patient-toolbar select {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-card, #fff); color: var(--text); font: inherit;
+}
+.patient-toolbar select { max-width: 270px; }
+.patient-toolbar button:disabled, .patient-dialog button:disabled { opacity: .5; cursor: default; }
+.patient-actions small, .patient-actions p { font-size: 12px; }
+.patient-dialog {
+  width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
+  overflow: auto; padding: 24px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg-card, #fff); color: var(--text);
+}
+.patient-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+.patient-dialog h2 { margin-top: 0; }
+.patient-dialog p { line-height: 1.5; }
+.patient-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; border: 0; padding: 0; }
+.patient-form-grid legend { padding: 10px 0; font-weight: 600; }
+.patient-dialog label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.patient-dialog input, .patient-dialog select, .patient-dialog textarea {
+  width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid var(--border);
+  border-radius: 5px; background: var(--bg-card, #fff); color: inherit; font: inherit;
+}
+.patient-dialog textarea { min-height: 90px; }
+.patient-dialog-buttons { justify-content: flex-end; margin-top: 20px; }
+.model-risk-panel { padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
+.model-risk-panel h3 { margin: 0 0 12px; }
+.risk-output-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.risk-output-grid > div { display: flex; flex-direction: column; gap: 5px; }
+.risk-output-grid strong { font-size: 24px; }
+.model-risk-panel p, .model-risk-panel small, .model-risk-panel li, .patient-queue-note {
+  font-size: 12px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.model-risk-panel details { margin-top: 10px; }
+.model-risk-panel summary { cursor: pointer; }
+@media (max-width: 720px) {
+  .topnav { flex-wrap: wrap; gap: 12px; }
+  .patient-toolbar { margin-left: 0; justify-content: flex-start; }
+  .patient-form-grid { grid-template-columns: 1fr; }
+}

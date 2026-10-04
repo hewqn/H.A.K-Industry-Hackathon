@@ -5,13 +5,12 @@ import Top25Table from "./components/Top25Table";
 import ColorLegend from "./components/ColorLegend";
 import CaseReport from "./components/CaseReport";
 import VoicePanel from "./components/VoicePanel";
+import PatientActions from "./components/PatientActions";
+import ModelRiskPanel from "./components/ModelRiskPanel";
 import { loadRanking, type QueueMode, type RankingContext } from "./api/loadRanking";
 import { loadCaseReport, type CaseReport as CaseReportData } from "./api/loadCaseReport";
 import type { Patient, OrganId } from "./types/patient";
-import {
-  scoreScalePosition,
-  type ColorMode,
-} from "./utils/organColors";
+import { type ColorMode } from "./utils/organColors";
 import "./App.css";
 
 export default function App() {
@@ -28,20 +27,24 @@ export default function App() {
   const [rankingContext, setRankingContext] = useState<RankingContext | null>(null);
   const [loadedMode, setLoadedMode] = useState<QueueMode | null>(null);
   const [rankingError, setRankingError] = useState("");
+  const [dataVersion, setDataVersion] = useState(0);
+  const [loadedVersion, setLoadedVersion] = useState(-1);
+  const [mutationBusy, setMutationBusy] = useState(false);
   // Switching modes immediately disables and ends the old voice session, before
   // the next ranking arrives. A cancelled response cannot restore its context.
-  const rankingLoading = loadedMode !== queueMode;
+  const rankingLoading = mutationBusy || loadedMode !== queueMode || loadedVersion !== dataVersion;
 
   useEffect(() => {
     let cancelled = false;
 
-    loadRanking(queueMode).then(({ patients: ranked, source: nextSource, method: nextMethod, context }) => {
+    loadRanking(queueMode, { forceFresh: dataVersion > 0, requireApi: dataVersion > 0 }).then(({ patients: ranked, source: nextSource, method: nextMethod, context }) => {
       if (cancelled) return;
       setPatients(ranked);
       setSource(nextSource);
       setMethod(nextMethod);
       setRankingContext(context);
       setLoadedMode(queueMode);
+      setLoadedVersion(dataVersion);
       setRankingError("");
       setSelectedId((current) =>
         current && ranked.some((patient) => patient.patient_id === current)
@@ -54,13 +57,14 @@ export default function App() {
       setPatients([]);
       setRankingContext(null);
       setLoadedMode(queueMode);
-      setRankingError("Patient data could not be loaded. Check the API or bundled CSV.");
+      setLoadedVersion(dataVersion);
+      setRankingError("Patient data could not be refreshed. Check the API and use Refresh patients.");
     });
 
     return () => {
       cancelled = true;
     };
-  }, [queueMode]);
+  }, [queueMode, dataVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,25 +80,34 @@ export default function App() {
   const preview =
     patients.find((p) => p.patient_id === previewId && p.patient_id !== selectedId) ??
     null;
-  const rankingHeat =
-    selected == null ||
-    queueMode === "oldest" ||
-    selected.score_kind === "age"
-      ? undefined
-      : (() => {
-          const heat = scoreScalePosition(
-            selected.score,
-            selected.score_kind,
-            typeof queueMode === "number" ? queueMode : 2,
-          );
-          return { heart: heat, kidney: heat };
-        })();
+
+  function refreshPatients(patientId?: string) {
+    if (patientId) setSelectedId(patientId);
+    setFocusedOrgan(null);
+    setPreviewId(null);
+    setRankingContext(null);
+    setDataVersion((version) => version + 1);
+  }
 
   return (
     <div className="app">
       <nav className="topnav">
         <div className="topnav-left">
           <span className="logo">H.A.K The Heart Failure</span>
+        </div>
+        <div className="patient-toolbar">
+          <label>Patient
+            <select aria-label="Select patient from cohort" value={selectedId ?? ""} disabled={rankingLoading}
+              onChange={(event) => { setSelectedId(event.target.value); setFocusedOrgan(null); }}>
+              {!selectedId && <option value="">No patients</option>}
+              {patients.map((patient) => <option key={patient.patient_id} value={patient.patient_id}>
+                {patient.patient_id} · rank {patient.rank}{patient.rank > 25 ? " · outside Top 25" : ""}
+              </option>)}
+            </select>
+          </label>
+          <button disabled={rankingLoading} onClick={() => refreshPatients()}>Refresh patients</button>
+          <PatientActions patient={selected} enabled={source === "api" && !rankingError} loading={rankingLoading}
+            onBusy={setMutationBusy} onChanged={refreshPatients} />
         </div>
       </nav>
 
@@ -132,9 +145,7 @@ export default function App() {
                 focusedOrgan={focusedOrgan}
                 onOrganSelect={setFocusedOrgan}
                 colorMode={colorMode}
-                organRisk={
-                  colorMode === "risk" ? rankingHeat : selected.organ_risk
-                }
+                organRisk={selected.organ_risk}
                 applyColour={applyColour}
                 onApplyColourChange={(organ, on) =>
                   setApplyColour((current) => ({ ...current, [organ]: on }))
@@ -148,6 +159,8 @@ export default function App() {
                 queueMode={queueMode}
                 onQueueModeChange={setQueueMode}
               />
+              <ModelRiskPanel patient={selected} />
+              {selected.rank > 25 && <p className="patient-queue-note">This patient is outside the current Top 25 (rank {selected.rank}).</p>}
               {caseReport && <CaseReport report={caseReport} />}
               <VoicePanel
                 key={`${rankingLoading ? "loading" : rankingContext?.snapshot_id ?? "local"}:${selectedId}:${queueMode}`}
@@ -172,7 +185,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          (rankingLoading || !rankingError) && <div className="empty">Loading the call list</div>
+          !rankingError && <div className="empty">{rankingLoading ? "Loading the call list" : "No eligible patients. Add a patient to begin."}</div>
         )}
       </main>
 
@@ -199,18 +212,18 @@ export default function App() {
         <span>
           {source === "api"
             ? method === "patient_risk"
-              ? "UCI cohort via API · frozen ML queue"
+              ? "Patient cohort via API · frozen ML queue"
               : method === "oldest_first"
-                ? "UCI cohort via API · oldest first"
+                ? "Patient cohort via API · oldest first"
               : method === "combined_w2"
-                ? "UCI cohort via API · ML + heart weight 2"
+                ? "Patient cohort via API · ML + heart weight 2"
                 : method === "combined_w3"
-                  ? "UCI cohort via API · ML + heart weight 3"
+                  ? "Patient cohort via API · ML + heart weight 3"
               : method === "points_v1"
-                ? "UCI cohort via API · heart weight 2"
+                ? "Patient cohort via API · heart weight 2"
                 : method === "points_heart3"
-                  ? "UCI cohort via API · heart weight 3"
-                  : "UCI cohort via API"
+                  ? "Patient cohort via API · heart weight 3"
+                  : "Patient cohort via API"
             : "UCI Heart Failure Clinical Records, CC BY 4.0"}
         </span>
       </footer>

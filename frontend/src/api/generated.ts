@@ -596,6 +596,20 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /**
+         * PatientMutationRead
+         * @description Confirmed receipt: scored add/edit, or deletion without a facts/risk envelope.
+         */
+        PatientMutationRead: {
+            /** Patient Id */
+            patient_id: string;
+            /** Revision */
+            revision: number;
+            /** Sync Status */
+            sync_status: string;
+            facts?: components["schemas"]["Facts"] | null;
+            model_risks?: components["schemas"]["ModelRisks"] | null;
+        };
         /** PatientRead */
         PatientRead: {
             /** Patient Id */
@@ -684,6 +698,7 @@ export interface components {
             /** Workflow State */
             workflow_state: string;
             override: components["schemas"]["Override"] | null;
+            model_risks?: components["schemas"]["ModelRisks"] | null;
         };
         /** ResetRequest */
         ResetRequest: {
@@ -1114,7 +1129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PatientMutationRead"];
                 };
             };
             /** @description Validation Error */
@@ -1182,7 +1197,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PatientMutationRead"];
                 };
             };
             /** @description Validation Error */
@@ -1217,7 +1232,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PatientMutationRead"];
                 };
             };
             /** @description Validation Error */

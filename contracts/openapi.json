@@ -115,7 +115,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PatientMutationRead"
+                }
               }
             }
           },
@@ -209,7 +211,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PatientMutationRead"
+                }
               }
             }
           },
@@ -254,7 +258,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PatientMutationRead"
+                }
               }
             }
           },
@@ -1561,6 +1567,50 @@
         ],
         "title": "PatientDeleteRequest"
       },
+      "PatientMutationRead": {
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "title": "Patient Id"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "sync_status": {
+            "type": "string",
+            "title": "Sync Status"
+          },
+          "facts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Facts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_risks": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelRisks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "patient_id",
+          "revision",
+          "sync_status"
+        ],
+        "title": "PatientMutationRead",
+        "description": "Confirmed receipt: scored add/edit, or deletion without a facts/risk envelope."
+      },
       "PatientRead": {
         "properties": {
           "patient_id": {
@@ -1890,6 +1940,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Override"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_risks": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelRisks"
               },
               {
                 "type": "null"

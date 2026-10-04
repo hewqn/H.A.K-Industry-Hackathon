@@ -10,9 +10,9 @@ This records implementation starting points, **not** a P0 release certification.
 | DB-01 | Table reference/notebooks/capability template | Real Delta/MLflow work in approved workspace |
 | DB-02 | Repository interface + connection configuration | Actual transport, durable events/cache/outbox/restart/reconciliation |
 | DB-03 | Capability-gated notes | Optional serving/Apps/Jobs/provider services |
-| QUEUE-01 | Shared ranking + read-only default queue/evidence | Full UI method/priority behavior and integration QA |
+| QUEUE-01 | Shared ranking, three-risk snapshot envelopes, add/edit/delete scoring, dashboard forms and eligible-patient picker | Complete other UI method/capacity/workflow flows and device integration QA |
 | QUEUE-02 | Queue calculation accepts workflow/overrides | Persistent transitions, search/capacity UI, reasoned mutations, overflow recovery |
-| VIZ-01 | Typed anatomy handoff + indicator text cards | Engineer supplies geometry/viewer and actual Three.js integration |
+| VIZ-01 | Existing asset viewer, typed handoff, separate measurement/independent ML colors and text cards | Final engineer geometry and visual/device acceptance |
 | VIZ-02 | Manifest/lifecycle interface and integration README | Engineer asset/module, camera/resize/disposal/performance/failure tests |
 | CMP-01 | Labelled benchmark and frozen supervised reports/selections | Completed comparison UI and fresh validation |
 | CMP-02 | Heart-only evaluator with movement/decision | Snapshot previews and explicit operational apply UI |
@@ -32,3 +32,10 @@ combined configuration, CORS, ranking revision/cache boundaries, merged dashboar
 wiring and the real SDK's idle/text lifecycle. No new live provider or cloud tests
 were run during merge resolution. Device audio, live Databricks, final 3D and
 provider-summary acceptance remain outstanding.
+
+Patient/ML integration verification on `streamlining_changes`: 106 Python and 34
+frontend tests pass, plus Ruff, TypeScript and Vite build. All 897 outputs in the
+local published bundle matched frozen inference exactly. CRUD persistence/retries,
+stale voice context, independent colors, low-rank patient selection and empty
+cohorts are covered. Browser automation was unavailable, so visual/audio QA remains
+unverified. See [the audit](ml-dashboard-audit.md) for findings and fixes.

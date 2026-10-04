@@ -71,6 +71,10 @@ class VoiceService:
         return snapshot
 
     def context(self, body) -> dict:
+        with self.application.session_read():
+            return self._context(body)
+
+    def _context(self, body) -> dict:
         snapshot = self.validate_context(body.snapshot_id, body.patient_id)
         now = time.time()
         grant = {
@@ -118,6 +122,12 @@ class VoiceService:
         return {**self.context(body), "signed_url": signed_url, "connection_type": "websocket", "text_only": body.text_only}
 
     def tool(self, name: str, body, token: str | None) -> dict:
+        # A concurrent edit must not land between revision validation and reading
+        # the patient/workflow evidence that will be spoken to the user.
+        with self.application.session_read():
+            return self._tool(name, body, token)
+
+    def _tool(self, name: str, body, token: str | None) -> dict:
         if name not in READ_TOOLS:
             raise DomainError("voice_tool_denied", "Only read-only evidence tools are permitted here.", 403)
         with self._lock:

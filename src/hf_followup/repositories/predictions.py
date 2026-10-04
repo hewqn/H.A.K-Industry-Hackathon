@@ -52,6 +52,8 @@ class PredictionBundle:
     manifest: dict
     patients: dict
     report: dict
+    # Resolve the publication pointer once, keeping lazy inference on this version.
+    directory: Path
 
     def ranking_predictions(self) -> dict:
         """Adapt the shared risk objects to the existing deterministic ranking engine."""
@@ -119,7 +121,7 @@ def load_prediction_bundle(root: Path | None, cohort) -> PredictionBundle | None
                     raise ValueError("Relative band does not apply the saved boundaries")
             row["risks"] = risks
         report = json.loads((directory / "evaluation_report.json").read_text())
-        return PredictionBundle(manifest, payload["patients"], report)
+        return PredictionBundle(manifest, payload["patients"], report, directory)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise DomainError(
             "model_bundle_invalid", f"Frozen ML cache could not be loaded: {exc}", 503

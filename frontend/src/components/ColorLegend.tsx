@@ -56,7 +56,8 @@ function heartWeightOf(queueMode: QueueMode): number {
 }
 
 function scoreLabel(patient: Patient): string | null {
-  if (patient.score_kind === "points" || patient.score_kind === "combined")
+  if (patient.score_kind === "combined") return patient.combined_score?.toFixed(3) ?? null;
+  if (patient.score_kind === "points")
     return String(patient.score);
   if (patient.score_kind === "model_output") return patient.score.toFixed(3);
   return null;
@@ -80,12 +81,14 @@ function ScoreScale({
   }
 
   const weight = heartWeightOf(queueMode);
-  const position = scoreScalePosition(patient.score, patient.score_kind, weight);
+  const position = patient.score_kind === "combined" ? (patient.combined_score ?? 0) / 2
+    : scoreScalePosition(patient.score, patient.score_kind, weight);
   const previewPosition =
     compared != null &&
     (compared.score_kind === patient.score_kind ||
       (compared.score_kind === "combined" && patient.score_kind === "combined"))
-      ? scoreScalePosition(compared.score, compared.score_kind, weight)
+      ? compared.score_kind === "combined" ? (compared.combined_score ?? 0) / 2
+        : scoreScalePosition(compared.score, compared.score_kind, weight)
       : null;
 
   return (
@@ -106,7 +109,7 @@ function ScoreScale({
           <span>
             {queueMode === "model"
               ? "Higher model score"
-              : `Higher · max ${pointsCeiling(weight)}`}
+              : `Higher · max ${patient.score_kind === "combined" ? 2 : pointsCeiling(weight)}`}
           </span>
         </div>
       </div>
@@ -130,10 +133,19 @@ export default function ColorLegend({
     return (
       <div className={`color-legend ${base ? "is-base" : ""}`}>
         {base && <p className="color-legend-title">Base model</p>}
-        <ScoreScale queueMode={queueMode} patient={patient} compared={compared} />
-        {queueMode === "oldest" && (
-          <p className="legend-empty">Oldest first ranks by age.</p>
-        )}
+        {([ ["heart", "Heart ML"], ["kidney", "Kidney ML"] ] as const).map(([organ, label]) => (
+          <div className="legend-row" key={organ}>
+            <span className="legend-organ">{label}</span>
+            <div className="legend-scale"><Scale swatch="risk-heat"
+              position={patient?.organ_risk?.[organ] ?? null}
+              label={patient?.organ_risk?.[organ].toFixed(3) ?? null}
+              previewPosition={compared?.organ_risk?.[organ] ?? null}
+              previewLabel={compared?.organ_risk?.[organ].toFixed(3) ?? null} />
+              <div className="legend-ends"><span>Lower score</span><span>Higher score</span></div>
+            </div>
+          </div>
+        ))}
+        {!patient?.organ_risk && <p className="legend-empty">ML unavailable; organs use neutral risk colors.</p>}
       </div>
     );
   }

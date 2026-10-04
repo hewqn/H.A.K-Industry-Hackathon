@@ -44,7 +44,8 @@ for Python/batch inference, thresholds and the database/3D handoff.
   organ indicators, and descriptive benchmark (18/21/19 outcomes; overlap 22/25).
 - FastAPI reads, patient CRUD, workflow/override commands, audit and queue export,
   with typed patient/evidence/snapshot contracts and local SQLite persistence.
-- Small React queue/selection layout with stale-response checks and factual summaries.
+- React queue/selection layout, add/delete patient dialogs, all-eligible patient picker,
+  independent organ scores, full ML output details and stale-context protection.
 - **No generated 3D models.** Typed viewer/asset handoff and usable text cards for the
   engineer; the rendering adapter is intentionally left for them to implement.
 - Frozen training/inference/publication scripts, runnable ML experiments, Delta export, repository
@@ -52,7 +53,9 @@ for Python/batch inference, thresholds and the database/3D handoff.
 - Private ElevenLabs voice/text sessions, seven scoped client tools, factual fallback,
   transcript and playback lifecycle. See [voice setup](docs/elevenlabs-integration.md).
 
-The API loads published ML outputs without fitting during requests. Voice uses the
+The API loads published ML outputs for reads and infers all three frozen pipelines
+before patient add/edit, without fitting during requests. Patient events persist their
+score envelopes; delete refreshes the live queue. See the [ML/dashboard audit](docs/ml-dashboard-audit.md). Voice uses the
 exact displayed backend snapshot; browser-combined ML/points lists retain factual
 fallback until an equivalent backend ranking is published. Live Databricks evidence,
 device microphone/playback QA, final 3D acceptance and provider summaries remain

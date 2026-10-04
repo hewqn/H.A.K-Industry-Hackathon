@@ -8,11 +8,16 @@ revision → append immutable event → confirm receipt before responding.
 import csv
 import io
 import uuid
+from contextlib import contextmanager
+from copy import deepcopy
 from datetime import UTC, datetime
+from functools import wraps
+from threading import RLock
 
 from hf_followup.domain.constants import INDICATOR_POLICY, METHODS, UNITS
 from hf_followup.domain.errors import DomainError
 from hf_followup.domain.indicators import organ_indicators
+from hf_followup.domain.predictions import RISK_TASKS, ModelRisks
 from hf_followup.domain.ranking import build_ranking
 from hf_followup.repositories.bundle import digest
 from hf_followup.services.summaries import template_summary
@@ -25,14 +30,34 @@ _TRANSITIONS = {
 }
 
 
+def synchronized(method):
+    """Keep one session writer and its ranking reads atomic in the local API worker."""
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class ApplicationService:
-    def __init__(self, cohort, benchmark: dict, settings, prediction_bundle=None, repository=None):
+    def __init__(self, cohort, benchmark: dict, settings, prediction_bundle=None, repository=None,
+                 predictor_factory=None):
         self.cohort = cohort
         self.benchmark = benchmark
         self.settings = settings
         self.prediction_bundle = prediction_bundle
         self.predictions = prediction_bundle.ranking_predictions() if prediction_bundle else {}
         self.repo = repository
+        self._lock = RLock()
+        self._predictor_factory = predictor_factory
+        self._predictor = None  # Reads use JSON; load trusted frozen pipelines only for changed facts.
+        self.patient_risks = {
+            pid: deepcopy(row["risks"]) for pid, row in prediction_bundle.patients.items()
+        } if prediction_bundle else {}
+        self._commands: dict[str, dict] = {}
+        # A deleted highest ID must never be reassigned to a different patient.
+        self._patient_sequence = max(int(pid[3:]) for pid in cohort.features)
+        self._source_sequence = max(row["source_row"] for row in cohort.features.values())
 
         # Mutable session state rebuilt from events on startup.
         self.snapshots: dict[str, dict] = {}
@@ -54,6 +79,12 @@ class ApplicationService:
             return "patient_risk" if self.prediction_bundle else "points_v1"
         return method
 
+    @contextmanager
+    def session_read(self):
+        """Bind composite evidence reads to one session revision during patient writes."""
+        with self._lock:
+            yield
+
     # ------------------------------------------------------------------
     # Event replay on startup
     # ------------------------------------------------------------------
@@ -62,6 +93,7 @@ class ApplicationService:
         """Rebuild in-memory state from persisted events."""
         events = self.repo.read_session_events(self.settings.session_id)
         for event in events:
+            self._commands[event["command_id"]] = event
             payload = event["payload"]
             action = payload.get("action")
             self.revision = event["revision"]
@@ -83,11 +115,11 @@ class ApplicationService:
 
     def _apply_snapshot(self, payload: dict):
         """Rebuild a snapshot from its event payload."""
+        if payload.get("model_bundle_id") and payload["model_bundle_id"] != self._bundle_id():
+            return  # A promoted model publication requires a fresh snapshot/context.
         try:
-            ranking = build_ranking(
-                self.cohort.features, self.workflow, self.overrides,
-                payload["method_id"], payload["capacity"], mode=payload.get("mode", "operational"),
-                predictions=self.predictions,
+            ranking = self._build_ranking(
+                payload["method_id"], payload["capacity"], payload.get("mode", "operational")
             )
         except DomainError:
             return  # skip snapshots whose method was removed
@@ -103,6 +135,7 @@ class ApplicationService:
             "overrides": dict(self.overrides),
             "provenance": payload.get("provenance", "persisted"),
             "sync_mode": payload.get("sync_mode", "persisted"),
+            "model_bundle_id": self._bundle_id(),
         }
         self.snapshots[snapshot["snapshot_id"]] = snapshot
 
@@ -142,6 +175,9 @@ class ApplicationService:
             "source_row": payload["source_row"],
             "facts": payload["facts"],
         }
+        self._patient_sequence = max(self._patient_sequence, int(pid[3:]))
+        self._source_sequence = max(self._source_sequence, payload["source_row"])
+        self._apply_risks(pid, payload["facts"], payload)
         self.cohort.manifest["accepted_ids"] = list(self.cohort.features.keys())
         self.cohort.manifest["accepted_count"] = len(self.cohort.features)
         self.cohort.manifest["source_count"] = len(self.cohort.features)
@@ -151,11 +187,15 @@ class ApplicationService:
         pid = payload["patient_id"]
         if pid in self.cohort.features:
             self.cohort.features[pid]["facts"] = payload["updated_facts"]
+            self._apply_risks(pid, payload["updated_facts"], payload)
 
     def _apply_delete_patient(self, payload: dict):
         """Replay a patient deletion."""
         pid = payload["patient_id"]
         self.cohort.features.pop(pid, None)
+        self.patient_risks.pop(pid, None)
+        for model in self.predictions.values():
+            model["patients"].pop(pid, None)
         self.cohort.manifest["accepted_ids"] = list(self.cohort.features.keys())
         self.cohort.manifest["accepted_count"] = len(self.cohort.features)
         self.cohort.manifest["source_count"] = len(self.cohort.features)
@@ -181,6 +221,7 @@ class ApplicationService:
             if result["duplicate"]:
                 return result
             self.revision = result["revision"]
+            self._commands[command_id] = {**result, "payload": deepcopy(payload)}
             return result
         else:
             # In-memory only fallback (no persistence).
@@ -191,25 +232,24 @@ class ApplicationService:
                     409,
                 )
             self.revision += 1
-            return {
+            result = {
                 "command_id": command_id,
                 "revision": self.revision,
                 "sync_status": "in_memory",
                 "created_at": datetime.now(UTC).isoformat(),
                 "duplicate": False,
             }
+            self._commands[command_id] = {**result, "payload": deepcopy(payload)}
+            return result
 
     # ------------------------------------------------------------------
     # Snapshots
     # ------------------------------------------------------------------
 
+    @synchronized
     def create_snapshot(self, method_id: str, capacity: int, mode="operational") -> dict:
-        """Create a ranking snapshot and persist it as an event."""
-        ranking = build_ranking(
-            self.cohort.features, self.workflow, self.overrides,
-            method_id, capacity, mode=mode,
-            predictions=self.predictions,
-        )
+        """Freeze a ranking in memory; create_snapshot_command journals its identity."""
+        ranking = self._build_ranking(method_id, capacity, mode)
         snapshot = {
             **ranking,
             "snapshot_id": str(uuid.uuid4()),
@@ -229,6 +269,7 @@ class ApplicationService:
         self.snapshots[snapshot["snapshot_id"]] = snapshot
         return snapshot
 
+    @synchronized
     def create_snapshot_command(self, command_id: str, expected_revision: int,
                                 method_id: str, capacity: int, mode: str = "operational") -> dict:
         """Create a snapshot through the command protocol."""
@@ -242,6 +283,7 @@ class ApplicationService:
             "created_at": snapshot["created_at"],
             "provenance": snapshot["provenance"],
             "sync_mode": snapshot["sync_mode"],
+            "model_bundle_id": snapshot["model_bundle_id"],
         }
         result = self._execute_command(command_id, expected_revision, payload)
         # Update snapshot with the committed revision.
@@ -267,6 +309,7 @@ class ApplicationService:
     # Workflow transitions
     # ------------------------------------------------------------------
 
+    @synchronized
     def transition_workflow(self, command_id: str, expected_revision: int,
                             patient_id: str, to_state: str,
                             reason: str | None = None) -> dict:
@@ -318,6 +361,7 @@ class ApplicationService:
     # Overrides (pin / defer / reset)
     # ------------------------------------------------------------------
 
+    @synchronized
     def apply_override(self, command_id: str, expected_revision: int,
                        patient_id: str, action: str, reason: str,
                        session_id: str | None = None) -> dict:
@@ -403,6 +447,7 @@ class ApplicationService:
     # Reset
     # ------------------------------------------------------------------
 
+    @synchronized
     def reset_session(self, command_id: str, expected_revision: int,
                       reason: str) -> dict:
         """Reset the session: clear workflow and overrides, keep the audit trail."""
@@ -427,99 +472,135 @@ class ApplicationService:
     # Patient CRUD
     # ------------------------------------------------------------------
 
-    def _next_patient_id(self) -> str:
-        """Generate the next available HF-XXXX patient ID."""
-        existing = [
-            int(pid.split("-")[1]) for pid in self.cohort.features if pid.startswith("HF-")
-        ]
-        next_num = max(existing, default=0) + 1
-        return f"HF-{next_num:04d}"
+    def _bundle_id(self):
+        return self.prediction_bundle.manifest["bundle_id"] if self.prediction_bundle else None
 
+    def _build_ranking(self, method_id, capacity, mode="operational"):
+        ranking = build_ranking(
+            self.cohort.features, self.workflow, self.overrides, method_id, capacity,
+            mode=mode, predictions=self.predictions,
+        )
+        # Freeze all three outputs beside the same baseline facts. Neither a later
+        # edit nor a different queue mode may substitute another version's scores.
+        for row in ranking["rows"]:
+            row["facts"] = deepcopy(row["facts"])
+            row["model_risks"] = deepcopy(self.patient_risks.get(row["patient_id"]))
+        return ranking
+
+    def _infer_risks(self, facts: dict):
+        if not self.prediction_bundle:
+            return None  # Explicit points-only mode; never fabricate ML outputs.
+        try:
+            if self._predictor is None:
+                if self._predictor_factory is None:
+                    raise ValueError("No frozen inference factory configured")
+                self._predictor = self._predictor_factory()
+            risks = ModelRisks.model_validate(self._predictor.predict_patient(facts)).model_dump()
+            if risks["bundle_id"] != self._bundle_id():
+                raise ValueError("Inference and read-cache bundle versions differ")
+            return risks
+        except Exception as error:
+            raise DomainError(
+                "inference_unavailable",
+                "Frozen ML scoring failed; no patient changes were saved. "
+                "Check the published artifacts and pinned ML dependencies.", 503,
+            ) from error
+
+    def _apply_risks(self, pid: str, facts: dict, payload: dict):
+        if not self.prediction_bundle:
+            return
+        risks = payload.get("model_risks")
+        # Old events may predate this interface or belong to a previous publication.
+        # Re-score those facts using the current frozen models on replay, never fit.
+        if not risks or risks.get("bundle_id") != self._bundle_id() or (
+            payload.get("features_digest") != digest(facts)
+        ):
+            risks = self._infer_risks(facts)
+        risks = ModelRisks.model_validate(risks).model_dump()
+        self.patient_risks[pid] = risks
+        for task in RISK_TASKS:
+            self.predictions[task]["patients"][pid] = risks[task]
+
+    def _patient_retry(self, command_id: str, request: dict):
+        event = self._commands.get(command_id)
+        if event is None:
+            return None
+        payload = event["payload"]
+        if payload.get("request") != request:
+            raise DomainError("command_conflict", "Command ID was already used for another request.", 409)
+        return self._patient_receipt(payload, event)
+
+    def _patient_receipt(self, payload, result):
+        response = {
+            "patient_id": payload["patient_id"], "revision": result["revision"],
+            "sync_status": result["sync_status"],
+            "model_risks": payload.get("model_risks"),
+        }
+        if payload["action"] != "delete_patient":
+            response["facts"] = payload.get("updated_facts", payload.get("facts"))
+        return response
+
+    def _check_revision(self, expected_revision):
+        if expected_revision != self.revision:
+            raise DomainError("revision_conflict", "Patient data changed; refresh before retrying.", 409)
+
+    @synchronized
     def add_patient(self, command_id: str, expected_revision: int, facts: dict) -> dict:
-        """Add a new patient to the cohort."""
-        patient_id = self._next_patient_id()
-        source_row = max(
-            (f["source_row"] for f in self.cohort.features.values()), default=0
-        ) + 1
-
+        """Score all three frozen pipelines before durably appending baseline facts."""
+        request = {"action": "add_patient", "facts": facts}
+        if previous := self._patient_retry(command_id, request):
+            return previous
+        self._check_revision(expected_revision)
+        if self._patient_sequence >= 9999:
+            raise DomainError("patient_id_capacity", "The session has exhausted its patient IDs.", 409)
+        risks = self._infer_risks(facts)  # Fail atomically before the command is written.
         payload = {
-            "action": "add_patient",
-            "patient_id": patient_id,
-            "source_row": source_row,
-            "facts": facts,
+            **request, "request": request, "patient_id": f"HF-{self._patient_sequence + 1:04d}",
+            "source_row": self._source_sequence + 1,
+            "features_digest": digest(facts), "model_risks": risks,
         }
         result = self._execute_command(command_id, expected_revision, payload)
+        self._apply_add_patient(payload)
+        self.default_snapshot = self.create_snapshot(self._default_method(), 25)
+        return self._patient_receipt(payload, result)
 
-        if not result["duplicate"]:
-            self.cohort.features[patient_id] = {
-                "patient_id": patient_id,
-                "source_row": source_row,
-                "facts": facts,
-            }
-            self.cohort.manifest["accepted_ids"].append(patient_id)
-            self.cohort.manifest["accepted_count"] = len(self.cohort.features)
-            self.cohort.manifest["source_count"] = len(self.cohort.features)
-
-        return {
-            "patient_id": patient_id,
-            "facts": facts,
-            "revision": result["revision"],
-            "sync_status": result["sync_status"],
-        }
-
+    @synchronized
     def update_patient(self, command_id: str, expected_revision: int,
                        patient_id: str, updates: dict) -> dict:
-        """Update an existing patient's facts."""
+        """Re-score the complete baseline; old snapshots retain their own risk objects."""
+        request = {"action": "update_patient", "patient_id": patient_id, "updates": updates}
+        if previous := self._patient_retry(command_id, request):
+            return previous
+        self._check_revision(expected_revision)
         if patient_id not in self.cohort.features:
             raise DomainError("patient_not_found", "Patient does not exist.", 404)
-
-        current_facts = dict(self.cohort.features[patient_id]["facts"])
-        new_facts = {**current_facts, **updates}
-
+        facts = self.cohort.features[patient_id]["facts"]
+        updated = {**facts, **updates}
+        risks = self._infer_risks(updated)
         payload = {
-            "action": "update_patient",
-            "patient_id": patient_id,
-            "previous_facts": current_facts,
-            "updated_facts": new_facts,
+            **request, "request": request, "previous_facts": facts, "updated_facts": updated,
+            "features_digest": digest(updated), "model_risks": risks,
         }
         result = self._execute_command(command_id, expected_revision, payload)
+        self._apply_update_patient(payload)
+        self.default_snapshot = self.create_snapshot(self._default_method(), 25)
+        return self._patient_receipt(payload, result)
 
-        if not result["duplicate"]:
-            self.cohort.features[patient_id]["facts"] = new_facts
-
-        return {
-            "patient_id": patient_id,
-            "facts": new_facts,
-            "revision": result["revision"],
-            "sync_status": result["sync_status"],
-        }
-
+    @synchronized
     def delete_patient(self, command_id: str, expected_revision: int,
                        patient_id: str, reason: str) -> dict:
-        """Remove a patient from the cohort."""
+        """Remove live facts, workflow and prediction indexes; retain immutable audit events."""
+        request = {"action": "delete_patient", "patient_id": patient_id, "reason": reason}
+        if previous := self._patient_retry(command_id, request):
+            return previous
+        self._check_revision(expected_revision)
         if patient_id not in self.cohort.features:
             raise DomainError("patient_not_found", "Patient does not exist.", 404)
-
-        payload = {
-            "action": "delete_patient",
-            "patient_id": patient_id,
-            "reason": reason,
-        }
+        payload = {**request, "request": request}
         result = self._execute_command(command_id, expected_revision, payload)
-
-        if not result["duplicate"]:
-            del self.cohort.features[patient_id]
-            self.cohort.manifest["accepted_ids"] = list(self.cohort.features.keys())
-            self.cohort.manifest["accepted_count"] = len(self.cohort.features)
-            self.cohort.manifest["source_count"] = len(self.cohort.features)
-            self.workflow.pop(patient_id, None)
-            self.overrides.pop(patient_id, None)
-
-        return {
-            "patient_id": patient_id,
-            "revision": result["revision"],
-            "sync_status": result["sync_status"],
-        }
+        self._apply_delete_patient(payload)
+        self.default_snapshot = self.create_snapshot(self._default_method(), 25)
+        return self._patient_receipt(payload, result)
 
     # ------------------------------------------------------------------
     # Audit events
@@ -594,9 +675,10 @@ class ApplicationService:
         return output.getvalue()
 
     # ------------------------------------------------------------------
-    # Reads (unchanged from scaffold)
+    # Shared snapshot/evidence reads
     # ------------------------------------------------------------------
 
+    @synchronized
     def cohort_read(self) -> dict:
         return {
             **self.cohort.manifest,
@@ -637,13 +719,16 @@ class ApplicationService:
             "selected_models": manifest["models"] if manifest else {},
         }
 
+    @synchronized
     def patient(self, patient_id: str, snapshot_id: str) -> dict:
         if patient_id not in self.cohort.features:
             raise DomainError(
-                "patient_not_found", "Patient does not exist in the bundled cohort.", 404
+                "patient_not_found", "Patient does not exist in the active cohort.", 404
             )
         snapshot = self.snapshot(snapshot_id)
-        row = next(row for row in snapshot["rows"] if row["patient_id"] == patient_id)
+        row = next((row for row in snapshot["rows"] if row["patient_id"] == patient_id), None)
+        if row is None:
+            raise DomainError("patient_not_in_snapshot", "Patient is absent from this snapshot.", 404)
         facts = row["facts"]
         measurements = [
             {
@@ -687,9 +772,7 @@ class ApplicationService:
             "provenance": "persisted" if self.repo else "local_csv_scaffold",
             "summary_status": "template",
             "fact_units": UNITS,
-            "model_risks": self.prediction_bundle.patients[patient_id]["risks"]
-            if self.prediction_bundle
-            else None,
+            "model_risks": row.get("model_risks"),
         }
         # One evidence namespace for summaries/tools. Logistic entries are real scaled
         # log-odds contributions; forest entries are observations, not local attribution.

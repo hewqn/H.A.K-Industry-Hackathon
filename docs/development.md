@@ -11,7 +11,8 @@ development-OOF-selected classification thresholds,
 and three frozen output pipelines. `heart_risk`/`kidney_risk` are organ-feature-associated
 recorded-death proxies; `patient_risk` learns from all allowlisted features. Organ-specific
 outcome labels are absent. Experimental relative bands use development OOF-score thirds
-and differ from PRD queue-priority bands; existing measurement colors remain unchanged.
+and differ from PRD queue-priority bands. Tissue State retains measurement colors;
+Risk Score uses independent heart/kidney model scores.
 Results/pipelines are exported locally under ignored `runtime/ml-experiments/`.
 The notebook now tunes parameters with positive-class F1, then selects each family by
 fewest development OOF false negatives, breaking ties with more true negatives/true
@@ -38,8 +39,8 @@ Actual MLflow logging, workspace Delta verification and SQL transport remain own
 | Owner | Start here | What is already provided | What the owner must implement |
 |---|---|---|---|
 | ML/data | `ml/training.py`, `databricks/notebooks/02_training.ipynb` | Runnable CV notebook, frozen choices, standalone training/inference/publication, versioned cache/API contracts | Fresh validation, actual Databricks ingest/training/MLflow logs and verified Delta publication |
-| Backend/database | `api/main.py`, `services/application.py`, `repositories/base.py`, `databricks/sql/001_tables.sql` | Read-only data slice, request/response schemas, numerical ranking, grounded evidence/indicators, explicit unfinished routes | Repository adapters, Delta/cache transport, event protocol, session revision checks, idempotency, durable snapshots, workflow/overrides, history, summary cache, safe export |
-| Frontend/3D | `frontend/src/App.tsx`, `components/AnatomyViewer.tsx`, `anatomy/adapter.ts` | Working local top-25 selection layout, API types, stale-response protection, typed 3D handoff and text cards | Final UI flows, method/capacity/search, comparisons/history, workflow forms, asset/viewer, lifecycle/performance/accessibility QA |
+| Backend/database | `api/main.py`, `services/application.py`, `repositories/base.py`, `databricks/sql/001_tables.sql` | Patient/ML reads and CRUD, SQLite events/replay, revision checks, retry receipts, workflow/overrides, audit, grounded summaries and export | Verify live Delta/cache transport and reconciliation; extend persistence and multi-user/session behavior as needed |
+| Frontend/3D | `frontend/src/App.tsx`, `components/AnatomyViewer.tsx`, `anatomy/adapter.ts` | Top-25 layout, all-eligible patient picker, add/delete dialogs, full ML outputs, independent organ colors, voice context and existing asset viewer | Complete capacity/comparisons/history/workflow UI and device lifecycle/performance/accessibility QA |
 | API integrations (shared) | `.env`, `.env.example`, `docs/api-integrations.md` | Commented settings, planned routes, evidence/tool contracts | Each owner configures and verifies the APIs used by their part; coordinate private voice session/tools and summary provider ownership |
 
 ## What runs now
@@ -49,11 +50,14 @@ patient evidence → frontend selection → textual organ indicators and factual
 The benchmark confirms 18/21/19 historical outcomes for age/baseline/revision, overlap
 22/25, and rejects the revision. These are descriptive case results, not trained ML.
 
-In-memory snapshots disappear on restart. The service does not persist states, train
-models, connect to Databricks or ElevenLabs, or render an anatomy model. Workflow,
-override, audit, export, and voice route placeholders return `503 integration_pending`.
-The ranking function accepts workflow/override input for the backend owner to wire;
-that calculation interface does not constitute durable workflow implementation.
+The service persists commands in SQLite locally, with a configured Databricks adapter
+when available. Workflow/override, audit, export and private ElevenLabs session/tool
+routes are implemented. Patient add/edit infer all three frozen models before saving;
+delete removes live predictions. The dashboard has add/delete dialogs, an eligible-patient
+picker, independent organ scores and current-snapshot voice context. The existing 3D
+viewer consumes engineer-supplied assets; this change does not generate geometry.
+See [the current ML/dashboard audit](ml-dashboard-audit.md) for verified behavior and
+remaining boundaries. Local persistence tests do not verify live Delta/MLflow transport.
 
 ## Implementation order
 
@@ -100,8 +104,8 @@ dependencies/builds/caches/model binaries are excluded from the handoff.
 
 ## Required integration checks still pending
 
-Actual Delta and MLflow runs; frozen artifact reload; backend event persistence/restart
-and reconciliation; status/backfill and override flows; final Three.js lifecycle/FPS;
+Actual Delta and MLflow runs and reconciliation; local frozen artifact reload and
+patient event persistence/restart are tested; status/backfill and override flows; final Three.js lifecycle/FPS;
 live voice tool trace + transcript; provider summary grounding; exact-snapshot safe CSV;
 stale-selection/failure drills; demo screenshots/recording/pitch. See PRD §20/26 for the
 full P0 gate. Do not mark these complete because the files or route names exist.
