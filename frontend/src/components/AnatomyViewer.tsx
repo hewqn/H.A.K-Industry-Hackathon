@@ -86,7 +86,7 @@ function OrganCanvas({
             checked={applyColour}
             onChange={(event) => onApplyColourChange(event.target.checked)}
           />
-          Show Colour
+          Show Tint
         </label>
         {!ready && (
           <div className="organ-loader" role="status" aria-live="polite">
