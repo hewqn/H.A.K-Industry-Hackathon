@@ -42,11 +42,28 @@ export type Models = Omit<components["schemas"]["ModelsRead"], "reports"> & {
   reports: { benchmark: Benchmark; supervised: SupervisedReport | null };
 };
 export interface Audit { event_id: string; action: string; patient_id: string | null; reason: string | null; revision: number; created_at: string; sync_status: string }
-export interface Health { mode: string; voice: string; pending_sync: number; provenance: string }
+export interface Health {
+  core?: string;
+  mode?: string;
+  databricks?: string;
+  voice: string;
+  persistence?: string;
+  ml?: string;
+  model_bundle_id?: string | null;
+  pending_sync?: number;
+  provenance?: string;
+}
 export interface VoiceSession { signed_url: string; snapshot_id: string; patient_id: string | null; max_duration_seconds: number }
 
 export class ApiError extends Error {
-  constructor(public code: string, message: string, public status: number) { super(message); }
+  code: string;
+  status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {

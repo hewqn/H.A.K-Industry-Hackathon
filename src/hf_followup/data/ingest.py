@@ -31,8 +31,10 @@ class Ingestion:
 
 
 def ingest_csv(path: Path, *, verify_bundled: bool = True) -> Ingestion:
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    if verify_bundled and digest != SOURCE_HASH:
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    normalized_digest = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+    if verify_bundled and normalized_digest != SOURCE_HASH:
         raise DomainError(
             "source_hash_mismatch", "Bundled dataset checksum does not match the PRD."
         )

@@ -1,4 +1,6 @@
-"""Verify the starter's actual read contract and explicit unfinished integration behavior."""
+"""Verify the starter's read contract and live workflow mutation."""
+
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -35,14 +37,15 @@ def test_queue_patient_contract_and_summary():
         forbidden_keys(snapshot)
 
 
-def test_unimplemented_mutation_returns_no_fake_success():
-    with TestClient(create_app(Settings())) as client:
-        response = client.patch(
-            "/api/v1/patients/HF-0001/workflow",
-            json={"command_id": "test-command", "expected_revision": 0, "state": "reviewed"},
-        )
-        assert response.status_code == 503
-        assert response.json()["code"] == "integration_pending"
+def test_workflow_transition_is_live():
+    with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
+        with TestClient(create_app(Settings())) as client:
+            response = client.patch(
+                "/api/v1/patients/HF-0001/workflow",
+                json={"command_id": "test-command", "expected_revision": 0, "state": "reviewed"},
+            )
+            assert response.status_code == 200
+            assert response.json()["to_state"] == "reviewed"
 
 
 def test_stale_summary_and_unknown_snapshot():

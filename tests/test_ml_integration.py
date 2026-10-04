@@ -3,6 +3,7 @@
 import json
 import math
 import shutil
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -114,39 +115,40 @@ def test_api_uses_only_cache_and_exposes_all_three_risks(frozen_models, monkeypa
         raise AssertionError("API must never deserialize models or fit during interactions")
 
     monkeypatch.setattr("joblib.load", forbidden_load)
-    with TestClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
-        cohort = client.get("/api/v1/cohorts/current").json()
-        snapshot_id = cohort["current_snapshot_id"]
-        snapshot = client.get(f"/api/v1/ranking-snapshots/{snapshot_id}").json()
-        assert snapshot["method_id"] == "patient_risk"
-        assert len(snapshot["queue"]) == 25
-        assert snapshot["queue"][0]["score"]["explanation_method"] == "linear_log_odds"
-        response = client.get("/api/v1/patients/HF-0001", params={"snapshot_id": snapshot_id})
-        assert response.status_code == 200
-        patient = response.json()
-        risks_response = client.get(
-            "/api/v1/patients/HF-0001/risks", params={"snapshot_id": snapshot_id}
-        )
-        assert risks_response.status_code == 200
-        assert patient["model_risks"] == risks_response.json()
-        assert "DEATH_EVENT" not in response.text and '"time"' not in response.text
-        assert patient["organs"]["kidney_left"] == patient["organs"]["kidney_right"]
-        assert len({item["id"] for item in patient["evidence"]}) == len(patient["evidence"])
-        models = client.get("/api/v1/models").json()
-        assert models["supervised_status"] == "ready"
-        for task in RISK_TASKS:
-            assert models["selected_models"][task]["family"] == selection["models"][task]["family"]
-        alternate = client.post(
-            "/api/v1/ranking-snapshots",
-            json={
-                "command_id": "ml-snapshot-test",
-                "expected_revision": 0,
-                "method_id": "heart_risk",
-                "capacity": 25,
-            },
-        )
-        assert alternate.status_code == 200
-        assert (
-            alternate.json()["snapshot"]["queue"][0]["score"]["explanation_method"]
-            == "recorded_features_no_local_attribution"
-        )
+    with patch("hf_followup.api.main._create_repository", return_value=(None, "in_memory")):
+        with TestClient(create_app(Settings(model_bundle_dir=folder / "published"))) as client:
+            cohort = client.get("/api/v1/cohorts/current").json()
+            snapshot_id = cohort["current_snapshot_id"]
+            snapshot = client.get(f"/api/v1/ranking-snapshots/{snapshot_id}").json()
+            assert snapshot["method_id"] == "patient_risk"
+            assert len(snapshot["queue"]) == 25
+            assert snapshot["queue"][0]["score"]["explanation_method"] == "linear_log_odds"
+            response = client.get("/api/v1/patients/HF-0001", params={"snapshot_id": snapshot_id})
+            assert response.status_code == 200
+            patient = response.json()
+            risks_response = client.get(
+                "/api/v1/patients/HF-0001/risks", params={"snapshot_id": snapshot_id}
+            )
+            assert risks_response.status_code == 200
+            assert patient["model_risks"] == risks_response.json()
+            assert "DEATH_EVENT" not in response.text and '"time"' not in response.text
+            assert patient["organs"]["kidney_left"] == patient["organs"]["kidney_right"]
+            assert len({item["id"] for item in patient["evidence"]}) == len(patient["evidence"])
+            models = client.get("/api/v1/models").json()
+            assert models["supervised_status"] == "ready"
+            for task in RISK_TASKS:
+                assert models["selected_models"][task]["family"] == selection["models"][task]["family"]
+            alternate = client.post(
+                "/api/v1/ranking-snapshots",
+                json={
+                    "command_id": "ml-snapshot-test",
+                    "expected_revision": 0,
+                    "method_id": "heart_risk",
+                    "capacity": 25,
+                },
+            )
+            assert alternate.status_code == 200
+            assert (
+                alternate.json()["snapshot"]["queue"][0]["score"]["explanation_method"]
+                == "recorded_features_no_local_attribution"
+            )

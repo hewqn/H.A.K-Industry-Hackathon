@@ -10,11 +10,11 @@ api:
 web:
 	cd frontend && npm run dev
 bootstrap:
-	$(PYTHON) scripts/bootstrap_demo.py
+	PYTHONPATH=src $(PYTHON) scripts/bootstrap_demo.py
 train:
-	$(PYTHON) scripts/train.py
+	PYTHONPATH=src $(PYTHON) scripts/train.py
 publish-models:
-	$(PYTHON) scripts/publish_models.py
+	PYTHONPATH=src $(PYTHON) scripts/publish_models.py
 test:
 	$(PYTHON) -m pytest
 check:

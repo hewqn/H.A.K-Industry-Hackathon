@@ -1,5 +1,6 @@
-import type { AnatomyProps } from "../components/AnatomyViewer";
 import type { OrganId } from "../api/client";
+
+type AnatomyProps = Record<string, unknown>;
 
 // The 3D engineer supplies geometry/viewer implementation. No anatomy is generated.
 export interface AssetManifest {
