@@ -4,7 +4,6 @@ Covers: cohort round-trip, predictions, reports, command idempotency,
 revision conflicts, pending-sync tracking, summary cache, and restart durability.
 """
 
-import json
 
 import pytest
 

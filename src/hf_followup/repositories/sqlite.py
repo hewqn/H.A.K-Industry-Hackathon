@@ -17,7 +17,6 @@ from pathlib import Path
 from hf_followup.domain.errors import DomainError
 from hf_followup.repositories.bundle import canonical, digest
 
-
 _SCHEMA = """\
 CREATE TABLE IF NOT EXISTS cohort_manifests (
     cohort_id   TEXT PRIMARY KEY,

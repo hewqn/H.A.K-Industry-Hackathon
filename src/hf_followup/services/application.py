@@ -14,7 +14,7 @@ from hf_followup.domain.constants import INDICATOR_POLICY, METHODS, UNITS
 from hf_followup.domain.errors import DomainError
 from hf_followup.domain.indicators import organ_indicators
 from hf_followup.domain.ranking import build_ranking
-from hf_followup.repositories.bundle import canonical, digest
+from hf_followup.repositories.bundle import digest
 from hf_followup.services.summaries import template_summary
 
 # Valid workflow transitions: from_state -> set of allowed to_states.

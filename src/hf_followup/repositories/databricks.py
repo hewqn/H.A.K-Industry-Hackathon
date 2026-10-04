@@ -13,7 +13,6 @@ from datetime import UTC, datetime
 from hf_followup.domain.errors import DomainError
 from hf_followup.repositories.bundle import canonical, digest
 
-
 # Only these table names are allowed in queries. Prevents SQL injection via table names.
 _ALLOWED_TABLES = frozenset({
     "raw_clinical_records",
@@ -139,7 +138,7 @@ class DatabricksRepository:
             )
 
         result: dict[str, dict] = {}
-        for model_id, patient_id, m_version, score, pred_json, meta_json in rows:
+        for model_id, patient_id, m_version, _score, pred_json, meta_json in rows:
             if model_id not in result:
                 meta = json.loads(meta_json)
                 result[model_id] = {
