@@ -62,6 +62,25 @@ body {
   letter-spacing: -0.3px;
 }
 
+.topnav-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: var(--accent);
+}
+
+.logout-button {
+  margin-left: 2px;
+}
+
 .view-toggle {
   display: flex;
   background: var(--bg);
@@ -867,6 +886,8 @@ body {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow-x: auto;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -889,42 +910,55 @@ body {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .queue-table .col-id {
-  width: 12%;
+  width: 28px;
 }
 
 .queue-table .col-patient {
-  width: 22%;
+  width: 78px;
 }
 
 .queue-table .col-ef,
 .queue-table .col-cr,
-.queue-table .col-age,
-.queue-table .col-score,
+.queue-table .col-age {
+  width: 36px;
+}
+
+.queue-table .col-score {
+  width: 52px;
+}
+
+.queue-table .col-death,
 .queue-table .col-move {
-  width: 14%;
+  width: 44px;
 }
 
 .queue-table thead {
   background: var(--bg);
 }
 
+.queue-table th,
+.queue-table td {
+  padding: 8px 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .queue-table th {
-  padding: 10px 14px;
   text-align: left;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
 }
 
 .queue-table td {
-  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
 }
@@ -1192,20 +1226,198 @@ td.warn {
   }
 }
 
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, #dbe7ff 0%, transparent 55%),
+    var(--bg);
+}
+.login-card {
+  width: min(400px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 36px 32px 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow-md);
+}
+.login-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.login-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+}
+.login-tabs {
+  display: flex;
+  width: 100%;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--bg);
+}
+.login-tabs button {
+  flex: 1;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.login-tabs button.active {
+  background: var(--white);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.login-card input {
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+}
+.login-card input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+.login-card input:disabled {
+  opacity: 0.65;
+}
+.login-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--danger-light);
+  color: var(--danger);
+  font-size: 13px;
+}
+.login-card button {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--white);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.login-card button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+.login-card button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 /* Patient controls reuse the existing palette; native dialogs provide focus trapping. */
-.topnav { height: auto; min-height: 56px; padding-top: 10px; padding-bottom: 10px; gap: 16px; flex-wrap: wrap; }
+.topnav {
+  justify-content: space-between;
+  height: auto;
+  min-height: 56px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 .patient-toolbar, .patient-action-buttons, .patient-dialog-buttons {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .patient-toolbar { margin-left: auto; justify-content: flex-end; }
-.patient-toolbar label { display: flex; align-items: center; gap: 8px; }
-.patient-toolbar button, .patient-dialog button, .patient-toolbar select {
-  padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--bg-card, #fff); color: var(--text); font: inherit;
+.patient-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
-.patient-toolbar select { max-width: 270px; }
-.patient-toolbar button:disabled, .patient-dialog button:disabled { opacity: .5; cursor: default; }
-.patient-actions small, .patient-actions p { font-size: 12px; }
+.patient-toolbar select {
+  max-width: 260px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.patient-toolbar select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.btn, .patient-dialog button {
+  padding: 6px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--move), color var(--move), border-color var(--move);
+}
+.btn:hover:not(:disabled), .patient-dialog button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(0.96);
+  color: var(--white);
+}
+.btn-danger {
+  border-color: #f0c4c8;
+  color: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger-light);
+  color: var(--danger);
+}
+.patient-toolbar button:disabled, .patient-dialog button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.patient-actions small, .patient-actions p { font-size: 12px; color: var(--text-muted); }
 .patient-dialog {
   width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
   overflow: auto; padding: 24px; border: 1px solid var(--border); border-radius: 12px;

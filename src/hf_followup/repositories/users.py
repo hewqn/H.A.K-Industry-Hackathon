@@ -31,6 +31,9 @@ class InMemoryUserStore:
     def set_role(self, user_id: str, role: str) -> None:
         self._users[user_id]["role"] = role
 
+    def set_password(self, user_id: str, password_hash: str) -> None:
+        self._users[user_id]["password_hash"] = password_hash
+
 
 class SQLiteUserStore:
     def __init__(self, db_path: str | Path):
@@ -75,6 +78,13 @@ class SQLiteUserStore:
     def set_role(self, user_id: str, role: str) -> None:
         with self._lock, self._conn:
             self._conn.execute("UPDATE users SET role = ? WHERE user_id = ?", (role, user_id))
+
+    def set_password(self, user_id: str, password_hash: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE users SET password_hash = ? WHERE user_id = ?",
+                (password_hash, user_id),
+            )
 
 
 class DatabricksUserStore:
@@ -132,3 +142,10 @@ class DatabricksUserStore:
     def set_role(self, user_id: str, role: str) -> None:
         with self._repo.connect() as conn, conn.cursor() as cur:
             cur.execute(f"UPDATE {self._table} SET role = ? WHERE user_id = ?", [role, user_id])
+
+    def set_password(self, user_id: str, password_hash: str) -> None:
+        with self._repo.connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE {self._table} SET password_hash = ? WHERE user_id = ?",
+                [password_hash, user_id],
+            )

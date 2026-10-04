@@ -367,8 +367,6 @@ async function rankFromApi(
       return { row, mlScore, points, evidence, combined: mlScore + points / ceiling, mlRank: row.model_rank };
     });
     combined.sort((a, b) => {
-      // Keep explicit clinician pins ahead of automatic scores, in the backend's
-      // call order. Eligibility already excludes contacted/deferred patients.
       const aPinned = a.row.override?.action === "pin";
       const bPinned = b.row.override?.action === "pin";
       if (aPinned && bPinned) return a.row.call_rank - b.row.call_rank;

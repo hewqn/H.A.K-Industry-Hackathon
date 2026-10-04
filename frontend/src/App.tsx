@@ -7,13 +7,19 @@ import CaseReport from "./components/CaseReport";
 import VoicePanel from "./components/VoicePanel";
 import PatientActions from "./components/PatientActions";
 import ModelRiskPanel from "./components/ModelRiskPanel";
+import LoginPage from "./components/LoginPage";
+import { isAdmin, isLoggedIn, logout, restoreSession } from "./auth";
 import { loadRanking, type QueueMode, type RankingContext } from "./api/loadRanking";
 import { loadCaseReport, type CaseReport as CaseReportData } from "./api/loadCaseReport";
+import { loadDeathIndex } from "./utils/scoring";
 import type { Patient, OrganId } from "./types/patient";
 import { type ColorMode } from "./utils/organColors";
 import "./App.css";
 
 export default function App() {
+  const [signedIn, setSignedIn] = useState(isLoggedIn());
+  const [admin, setAdmin] = useState(isAdmin());
+  const [deaths, setDeaths] = useState<Record<string, boolean>>({});
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
@@ -33,24 +39,52 @@ export default function App() {
   // Switching modes immediately disables and ends the old voice session, before
   // the next ranking arrives. A cancelled response cannot restore its context.
   const rankingLoading = mutationBusy || loadedMode !== queueMode || loadedVersion !== dataVersion;
+  const [sessionReady, setSessionReady] = useState(!isLoggedIn());
+
+  useEffect(() => {
+    let cancelled = false;
+    restoreSession().then((session) => {
+      if (cancelled) return;
+      setSignedIn(session.signedIn);
+      setAdmin(session.admin);
+      setSessionReady(true);
+    });
+    const lost = () => {
+      logout();
+      setSignedIn(false);
+      setAdmin(false);
+    };
+    window.addEventListener("hak-auth-lost", lost);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("hak-auth-lost", lost);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     loadRanking(queueMode, { forceFresh: dataVersion > 0, requireApi: dataVersion > 0 }).then(({ patients: ranked, source: nextSource, method: nextMethod, context }) => {
       if (cancelled) return;
-      setPatients(ranked);
+      setPatients(
+        ranked.map((patient) => ({
+          ...patient,
+          later_death: patient.patient_id in deaths ? deaths[patient.patient_id] : null,
+        })),
+      );
       setSource(nextSource);
       setMethod(nextMethod);
       setRankingContext(context);
       setLoadedMode(queueMode);
       setLoadedVersion(dataVersion);
       setRankingError("");
-      setSelectedId((current) =>
-        current && ranked.some((patient) => patient.patient_id === current)
-          ? current
-          : (ranked[0]?.patient_id ?? null),
-      );
+      setSelectedId((current) => {
+        if (queueMode !== loadedMode) return ranked[0]?.patient_id ?? null;
+        if (current && ranked.some((patient) => patient.patient_id === current)) {
+          return current;
+        }
+        return ranked[0]?.patient_id ?? null;
+      });
       setPreviewId(null);
     }).catch(() => {
       if (cancelled) return;
@@ -64,7 +98,19 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [queueMode, dataVersion]);
+  }, [queueMode, dataVersion, deaths]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadDeathIndex().then((index) => {
+      if (!cancelled) setDeaths(index);
+    }).catch(() => {
+      if (!cancelled) setDeaths({});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +120,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dataVersion]);
 
   const selected = patients.find((p) => p.patient_id === selectedId) ?? null;
   const preview =
@@ -89,11 +135,21 @@ export default function App() {
     setDataVersion((version) => version + 1);
   }
 
+  if (!sessionReady) {
+    return <div className="empty">Checking session</div>;
+  }
+
+  if (!signedIn) {
+    return <LoginPage onLoggedIn={() => { setSignedIn(true); setAdmin(isAdmin()); }} />;
+  }
+
   return (
     <div className="app">
       <nav className="topnav">
         <div className="topnav-left">
           <span className="logo">H.A.K The Heart Failure</span>
+          {admin && <span className="admin-badge">Admin</span>}
+          <button className="btn logout-button" onClick={() => { logout(); setSignedIn(false); setAdmin(false); }}>Log out</button>
         </div>
         <div className="patient-toolbar">
           <label>Patient
@@ -105,9 +161,11 @@ export default function App() {
               </option>)}
             </select>
           </label>
-          <button disabled={rankingLoading} onClick={() => refreshPatients()}>Refresh patients</button>
-          <PatientActions patient={selected} enabled={source === "api" && !rankingError} loading={rankingLoading}
-            onBusy={setMutationBusy} onChanged={refreshPatients} />
+          <button className="btn" disabled={rankingLoading} onClick={() => refreshPatients()}>Refresh</button>
+          {admin && (
+            <PatientActions patient={selected} enabled={source === "api" && !rankingError} loading={rankingLoading}
+              onBusy={setMutationBusy} onChanged={refreshPatients} />
+          )}
         </div>
       </nav>
 

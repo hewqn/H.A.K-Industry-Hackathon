@@ -15,6 +15,8 @@ from hf_followup.domain.errors import DomainError
 
 ROLES = ("admin", "viewer")
 TOKEN_TTL_SECONDS = 8 * 3600
+AUTH_ATTEMPT_LIMIT = 8
+AUTH_ATTEMPT_WINDOW = 60
 
 # Set by the admin dependency so command events record who performed them.
 current_actor: ContextVar[str | None] = ContextVar("current_actor", default=None)
@@ -55,12 +57,39 @@ def _unauthorized(message: str = "Log in to continue.") -> DomainError:
     return DomainError("not_authenticated", message, 401)
 
 
+class AttemptGate:
+    """Bound failed login/register retries per client so password guessing is slow."""
+
+    def __init__(self, limit: int = AUTH_ATTEMPT_LIMIT, window: int = AUTH_ATTEMPT_WINDOW):
+        self.limit = limit
+        self.window = window
+        self._hits: dict[str, list[float]] = {}
+
+    def _recent(self, key: str) -> list[float]:
+        now = time.time()
+        recent = [stamp for stamp in self._hits.get(key, []) if now - stamp < self.window]
+        self._hits[key] = recent
+        return recent
+
+    def check(self, key: str) -> None:
+        if len(self._recent(key)) >= self.limit:
+            raise DomainError("too_many_attempts", "Too many tries. Wait a minute and try again.", 429)
+
+    def fail(self, key: str) -> None:
+        self.check(key)
+        self._hits.setdefault(key, []).append(time.time())
+
+    def reset(self, key: str) -> None:
+        self._hits.pop(key, None)
+
+
 class AuthService:
     def __init__(self, store, secret: str | None = None, ttl: int = TOKEN_TTL_SECONDS):
         self.store = store
         # Without a configured secret, tokens are only valid until the API restarts.
         self._secret = (secret or secrets.token_hex(32)).encode()
         self.ttl = ttl
+        self.attempts = AttemptGate()
 
     def _sign(self, body: str) -> str:
         return _b64(hmac.new(self._secret, body.encode(), hashlib.sha256).digest())
@@ -122,8 +151,10 @@ class AuthService:
                 "role": "admin",
                 "created_at": datetime.now(UTC).isoformat(),
             })
-        elif existing["role"] != "admin":
+            return
+        if existing["role"] != "admin":
             self.store.set_role(existing["user_id"], "admin")
+        self.store.set_password(existing["user_id"], hash_password(password))
 
     def list_users(self) -> list[dict]:
         return [public_user(u) for u in self.store.list_all()]
