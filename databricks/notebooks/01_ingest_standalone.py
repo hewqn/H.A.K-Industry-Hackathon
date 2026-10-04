@@ -1,12 +1,11 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Ingest — ML/data + backend owners
-# MAGIC Creates Delta tables and loads the validated CSV into patient_features and
-# MAGIC cohort_manifests. Evaluation outcomes go to a separate restricted table.
+# MAGIC # Ingest (standalone) — no package dependencies
+# MAGIC Upload `heart_failure_clinical_records.csv` to your workspace (e.g. via the
+# MAGIC Workspace file browser), then update CSV_PATH below to point to it.
 # MAGIC
-# MAGIC **Before running:** upload `heart_failure_clinical_records.csv` to your workspace
-# MAGIC (e.g. via the Workspace file browser), then update CATALOG, SCHEMA, and CSV_PATH
-# MAGIC below to match your workspace. No external packages required.
+# MAGIC This notebook creates all Delta tables and loads the CSV without needing
+# MAGIC the `hf_followup` package installed. Run this once; re-run is safe (idempotent).
 
 # COMMAND ----------
 # Configuration — update these for your workspace.
@@ -25,7 +24,6 @@ print(f"OK {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ## 2. Create Delta tables
-# MAGIC These match `databricks/sql/001_tables.sql` exactly.
 
 # COMMAND ----------
 TABLE_DEFINITIONS = [
@@ -57,8 +55,6 @@ for table_name, columns in TABLE_DEFINITIONS:
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ## 3. Read and validate the CSV
-# MAGIC Inline validation — same logic as `hf_followup.data.ingest` but with no
-# MAGIC package dependency so this notebook runs anywhere.
 
 # COMMAND ----------
 import csv
@@ -66,7 +62,7 @@ import hashlib
 import json
 import math
 
-# PRD §5 feature allowlist.
+# Feature columns the app is allowed to use (PRD §5).
 FEATURES = (
     "age", "anaemia", "creatinine_phosphokinase", "diabetes", "ejection_fraction",
     "high_blood_pressure", "platelets", "serum_creatinine", "serum_sodium", "sex", "smoking",
@@ -74,10 +70,6 @@ FEATURES = (
 BINARY_FIELDS = {"anaemia", "diabetes", "high_blood_pressure", "sex", "smoking"}
 EVALUATION_FIELDS = ("time", "DEATH_EVENT")
 REQUIRED = (*FEATURES, *EVALUATION_FIELDS)
-
-# PRD constants.
-COHORT_ID = "uci-hf-299-v1"
-SCHEMA_VERSION = "patient-features-v1"
 
 # Read and hash the raw file.
 raw_bytes = open(CSV_PATH, "rb").read()
@@ -129,6 +121,7 @@ with open(CSV_PATH, newline="", encoding="utf-8-sig") as handle:
         outcomes[patient_id] = {"DEATH_EVENT": int(values["DEATH_EVENT"]), "time": values["time"]}
 
 source_count = len(raw_records)
+cohort_id = "uci-hf-299-v1"
 print(f"Source rows: {source_count}")
 print(f"Accepted: {len(features)}, Excluded: {len(excluded)}")
 print(f"Missing rows: {missing_rows}, Missing cells: {missing_cells}")
@@ -141,13 +134,12 @@ print(f"Source hash: {source_hash}")
 # COMMAND ----------
 
 def _canonical(value):
-    """Deterministic JSON for checksums — matches hf_followup.repositories.bundle.canonical."""
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 manifest = {
-    "cohort_id": COHORT_ID,
+    "cohort_id": cohort_id,
     "source_hash": source_hash,
-    "schema_version": SCHEMA_VERSION,
+    "schema_version": "patient-features-v1",
     "accepted_ids": list(features),
     "accepted_count": len(features),
     "source_count": source_count,
@@ -160,7 +152,7 @@ manifest = {
     "source": "UCI Heart Failure Clinical Records",
     "license": "CC BY 4.0",
 }
-print(f"Manifest cohort_id: {COHORT_ID}")
+print(f"Manifest cohort_id: {cohort_id}")
 
 # COMMAND ----------
 # MAGIC %md
@@ -171,42 +163,42 @@ from pyspark.sql import Row
 
 # Cohort manifest.
 spark.createDataFrame([Row(
-    cohort_id=COHORT_ID, source_hash=source_hash, manifest_json=_canonical(manifest),
+    cohort_id=cohort_id, source_hash=source_hash, manifest_json=_canonical(manifest),
 )]).write.format("delta").mode("overwrite").option(
-    "replaceWhere", f"cohort_id = '{COHORT_ID}'"
+    "replaceWhere", f"cohort_id = '{cohort_id}'"
 ).saveAsTable(f"{CATALOG}.{SCHEMA}.cohort_manifests")
 print(f"OK cohort_manifests: 1 row")
 
 # Patient features.
 feature_rows = [
-    Row(cohort_id=COHORT_ID, patient_id=pid, source_row=rec["source_row"],
+    Row(cohort_id=cohort_id, patient_id=pid, source_row=rec["source_row"],
         features_json=_canonical(rec["facts"]))
     for pid, rec in features.items()
 ]
 spark.createDataFrame(feature_rows).write.format("delta").mode("overwrite").option(
-    "replaceWhere", f"cohort_id = '{COHORT_ID}'"
+    "replaceWhere", f"cohort_id = '{cohort_id}'"
 ).saveAsTable(f"{CATALOG}.{SCHEMA}.patient_features")
 print(f"OK patient_features: {len(feature_rows)} rows")
 
 # Raw clinical records.
 raw_rows = [
-    Row(cohort_id=COHORT_ID, patient_id=pid, source_row=srow,
+    Row(cohort_id=cohort_id, patient_id=pid, source_row=srow,
         source_hash=source_hash, raw_json=rjson)
     for pid, srow, rjson in raw_records
 ]
 spark.createDataFrame(raw_rows).write.format("delta").mode("overwrite").option(
-    "replaceWhere", f"cohort_id = '{COHORT_ID}'"
+    "replaceWhere", f"cohort_id = '{cohort_id}'"
 ).saveAsTable(f"{CATALOG}.{SCHEMA}.raw_clinical_records")
 print(f"OK raw_clinical_records: {len(raw_rows)} rows")
 
-# Evaluation outcomes (restricted — ML/evaluator only, app must never read this).
+# Evaluation outcomes (restricted — ML/evaluator only).
 outcome_rows = [
-    Row(cohort_id=COHORT_ID, patient_id=pid,
+    Row(cohort_id=cohort_id, patient_id=pid,
         DEATH_EVENT=out["DEATH_EVENT"], follow_up_days=out["time"])
     for pid, out in outcomes.items()
 ]
 spark.createDataFrame(outcome_rows).write.format("delta").mode("overwrite").option(
-    "replaceWhere", f"cohort_id = '{COHORT_ID}'"
+    "replaceWhere", f"cohort_id = '{cohort_id}'"
 ).saveAsTable(f"{CATALOG}.{SCHEMA}.evaluation_outcomes")
 print(f"OK evaluation_outcomes: {len(outcome_rows)} rows")
 
@@ -223,7 +215,7 @@ for table_name, expected in [
     ("evaluation_outcomes", 299),
 ]:
     fqn = f"{CATALOG}.{SCHEMA}.{table_name}"
-    count = spark.sql(f"SELECT COUNT(*) FROM {fqn} WHERE cohort_id = '{COHORT_ID}'").collect()[0][0]
+    count = spark.sql(f"SELECT COUNT(*) FROM {fqn} WHERE cohort_id = '{cohort_id}'").collect()[0][0]
     status = "OK" if count == expected else "FAIL"
     if count != expected:
         all_ok = False

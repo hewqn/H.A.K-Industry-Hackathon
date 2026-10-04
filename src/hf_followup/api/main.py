@@ -1,15 +1,16 @@
-"""Backend owner's HTTP entry point with a small, read-only local data slice.
+"""Backend API with durable persistence, workflow, overrides, and audit.
 
-/api/v1/docs contracts are available at /docs. Database/voice/workflow operations
-are explicit 503 TODOs, never fake success. Use one writer when implementing PRD §25.
+/api/v1/docs contracts are available at /docs. Voice routes remain 503 TODOs
+for the integrating owner. All mutations go through the command protocol (PRD §25).
 """
 
+import os
 import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from hf_followup.api.schemas import (
     CohortRead,
@@ -33,6 +34,29 @@ from hf_followup.evaluation.benchmark import case_benchmark
 from hf_followup.services.application import ApplicationService
 
 
+def _create_repository(settings: Settings):
+    """Create the best available repository: Databricks if configured, else SQLite."""
+    hostname = os.getenv("DATABRICKS_SERVER_HOSTNAME", "")
+    catalog = os.getenv("HF_CATALOG", "")
+
+    if hostname and catalog:
+        try:
+            from hf_followup.repositories.databricks import DatabricksRepository
+
+            repo = DatabricksRepository()
+            repo.connect().close()  # Verify the connection works.
+            return repo, "databricks"
+        except Exception:
+            pass  # Fall through to SQLite.
+
+    # SQLite fallback — always available.
+    from hf_followup.repositories.sqlite import SQLiteRepository
+
+    db_path = settings.root / "runtime" / "local.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return SQLiteRepository(db_path), "sqlite"
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
 
@@ -42,7 +66,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # after aggregate evaluation and are never supplied to the service or tools.
         ingestion = ingest_csv(settings.root / "data/heart_failure_clinical_records.csv")
         report = case_benchmark(ingestion.cohort, ingestion.outcomes)
-        app.state.service = ApplicationService(ingestion.cohort, report, settings)
+
+        repo, repo_mode = _create_repository(settings)
+        app.state.repo_mode = repo_mode
+        app.state.service = ApplicationService(ingestion.cohort, report, settings, repository=repo)
         del ingestion  # Release evaluator labels before the application starts serving requests.
         yield
 
@@ -85,15 +112,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     prefix = "/api/v1"
 
+    # ------------------------------------------------------------------
+    # Health
+    # ------------------------------------------------------------------
+
     @app.get(prefix + "/health")
-    def health():
+    def health(request: Request):
         return {
-            "core": "scaffold_ready",
-            "mode": "in_memory_scaffold",
-            "databricks": "not_connected",
+            "core": "ready",
+            "mode": request.app.state.repo_mode,
+            "databricks": "connected" if request.app.state.repo_mode == "databricks" else "not_connected",
             "voice": "not_connected",
-            "persistence": "not_implemented",
+            "persistence": request.app.state.repo_mode,
         }
+
+    # ------------------------------------------------------------------
+    # Reads
+    # ------------------------------------------------------------------
 
     @app.get(prefix + "/cohorts/current", response_model=CohortRead)
     def cohort(svc=Depends(service)):
@@ -102,18 +137,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get(prefix + "/models")
     def models(svc=Depends(service)):
         return svc.models()
-
-    @app.post(prefix + "/ranking-snapshots", response_model=MutationResult)
-    def create_snapshot(body: SnapshotRequest, svc=Depends(service)):
-        if body.cohort_id != svc.cohort.manifest["cohort_id"]:
-            raise DomainError("cohort_not_found", "Requested cohort is not active.", 404)
-        # Local previews only. TODO(OPS-01): command IDs/revisions + durable event commit.
-        return {
-            "snapshot": svc.create_snapshot(body.method_id, body.capacity, body.mode),
-            "revision": 0,
-            "sync_status": "in_memory_preview",
-            "replayed": False,
-        }
 
     @app.get(prefix + "/ranking-snapshots/{snapshot_id}", response_model=Snapshot)
     def snapshot(snapshot_id: str, svc=Depends(service)):
@@ -128,49 +151,78 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         patient = svc.patient(patient_id, body.snapshot_id)
         if patient["evidence_digest"] != body.evidence_digest:
             raise DomainError("stale_evidence", "Summary digest differs from this snapshot.", 409)
-        return patient["summary"]  # Template only; provider/cache implementation remains SUM-01.
+        return patient["summary"]
 
     @app.post(prefix + "/comparisons/heart-weight")
     def comparison(body: ComparisonRequest, svc=Depends(service)):
         if body.cohort_id != svc.cohort.manifest["cohort_id"]:
             raise DomainError("cohort_not_found", "Use the fixed bundled cohort.", 404)
-        return svc.benchmark  # Descriptive results, not supervised validation or queue mutation.
+        return svc.benchmark
+
+    # ------------------------------------------------------------------
+    # Mutations (all go through the command protocol)
+    # ------------------------------------------------------------------
+
+    @app.post(prefix + "/ranking-snapshots", response_model=MutationResult)
+    def create_snapshot(body: SnapshotRequest, svc=Depends(service)):
+        if body.cohort_id != svc.cohort.manifest["cohort_id"]:
+            raise DomainError("cohort_not_found", "Requested cohort is not active.", 404)
+        return svc.create_snapshot_command(
+            body.command_id, body.expected_revision,
+            body.method_id, body.capacity, body.mode,
+        )
 
     @app.patch(prefix + "/patients/{patient_id}/workflow")
-    def workflow(patient_id: str, body: WorkflowRequest):
-        # TODO(BACKEND, QUEUE-02): transition validation + contact/backfill + reopen reasons.
-        return unfinished("Workflow persistence and transitions (QUEUE-02)")
+    def workflow(patient_id: str, body: WorkflowRequest, svc=Depends(service)):
+        return svc.transition_workflow(
+            body.command_id, body.expected_revision,
+            patient_id, body.state, body.reason,
+        )
 
     @app.post(prefix + "/overrides")
-    def overrides(body: OverrideRequest):
-        # TODO(BACKEND): reasons, pin/defer exclusivity, overflow, snapshot + event atomicity.
-        return unfinished("Clinician overrides (QUEUE-02)")
+    def overrides(body: OverrideRequest, svc=Depends(service)):
+        return svc.apply_override(
+            body.command_id, body.expected_revision,
+            body.patient_id, body.action, body.reason, body.session_id,
+        )
 
     @app.post(prefix + "/sessions/reset")
-    def reset(body: ResetRequest):
-        # TODO(BACKEND): retain an audit event; never delete source/model artifacts.
-        return unfinished("Audited demo reset (OPS-01)")
+    def reset(body: ResetRequest, svc=Depends(service)):
+        return svc.reset_session(
+            body.command_id, body.expected_revision, body.reason,
+        )
+
+    # ------------------------------------------------------------------
+    # Audit and export
+    # ------------------------------------------------------------------
 
     @app.get(prefix + "/audit-events")
-    def audit_events():
-        # TODO(BACKEND): ordered, paginated immutable events; no secrets in response.
-        return unfinished("Audit repository (OPS-01)")
+    def audit_events(
+        limit: int = Query(default=50, ge=1, le=200),
+        offset: int = Query(default=0, ge=0),
+        svc=Depends(service),
+    ):
+        return svc.audit_events(limit, offset)
 
     @app.get(prefix + "/exports/queue.csv")
-    def export(snapshot_id: str):
-        # TODO(BACKEND): exact snapshot, provenance, summary, CSV escaping/formula neutralization.
-        return unfinished("Snapshot handoff export (OPS-01)")
+    def export(snapshot_id: str = Query(max_length=100), svc=Depends(service)):
+        csv_content = svc.export_queue_csv(snapshot_id)
+        return PlainTextResponse(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="queue-{snapshot_id[:8]}.csv"'},
+        )
+
+    # ------------------------------------------------------------------
+    # Voice (not ours — still 503)
+    # ------------------------------------------------------------------
 
     @app.post(prefix + "/voice/session")
     def voice_session(body: ContextRequest):
-        # TODO(API owner): validate active context; request private short-lived signed session.
-        # API keys remain server-side. Add allowed origins, timeouts, rate/duration limits.
         return unfinished("ElevenLabs private session (VOICE-01)")
 
     @app.post(prefix + "/voice/tools/{tool_name}")
     def voice_tool(tool_name: str, body: ToolRequest):
-        # TODO(API owner): authenticate and allowlist tools; never accept SQL/URLs/code.
-        # Choose protected HTTPS webhooks OR browser client tools in docs/api-integrations.md.
         return unfinished("Authenticated evidence tools (VOICE-01)")
 
     return app

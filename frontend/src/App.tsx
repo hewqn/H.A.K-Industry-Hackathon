@@ -3,7 +3,7 @@ import AnatomyViewer from "./components/AnatomyViewer";
 import AnatomyView from "./components/AnatomyView";
 import Top25Table from "./components/Top25Table";
 import ColorLegend from "./components/ColorLegend";
-import { parseCSV, rankPatients } from "./utils/scoring";
+import { loadRanking } from "./api/loadRanking";
 import type { Patient, OrganId } from "./types/patient";
 import type { ColorMode } from "./utils/organColors";
 import "./App.css";
@@ -16,18 +16,25 @@ export default function App() {
   const [heartWeight, setHeartWeight] = useState(2);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [applyColour, setApplyColour] = useState({ heart: true, kidney: true });
+  const [source, setSource] = useState<"api" | "local">("local");
 
   useEffect(() => {
-    fetch("/data/heart_failure_clinical_records.csv")
-      .then((r) => r.text())
-      .then((text) => {
-        const rows = parseCSV(text);
-        const ranked = rankPatients(rows, heartWeight, 25);
-        setPatients(ranked);
-        if (ranked.length > 0 && !selectedId) {
-          setSelectedId(ranked[0].patient_id);
-        }
-      });
+    let cancelled = false;
+
+    loadRanking(heartWeight).then(({ patients: ranked, source: nextSource }) => {
+      if (cancelled) return;
+      setPatients(ranked);
+      setSource(nextSource);
+      setSelectedId((current) =>
+        current && ranked.some((patient) => patient.patient_id === current)
+          ? current
+          : (ranked[0]?.patient_id ?? null),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [heartWeight]);
 
   const selected = patients.find((p) => p.patient_id === selectedId) ?? null;
@@ -124,7 +131,11 @@ export default function App() {
           </a>{" "}
           on Sketchfab
         </span>
-        <span>UCI Heart Failure Clinical Records, CC BY 4.0</span>
+        <span>
+          {source === "api"
+            ? "UCI cohort via API"
+            : "UCI Heart Failure Clinical Records, CC BY 4.0"}
+        </span>
       </footer>
     </div>
   );
