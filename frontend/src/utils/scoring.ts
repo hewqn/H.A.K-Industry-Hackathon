@@ -1,5 +1,5 @@
 import type { Patient, OrganIndicator, EvidenceItem } from "../types/patient";
-import { heartScalePosition, kidneyScalePosition } from "./organColors";
+import { heartRiskFromData, kidneyScalePosition } from "./organColors";
 
 interface RawRow {
   age: number;
@@ -142,6 +142,13 @@ export function rankPatients(
   heartWeight: number = 2,
   capacity: number = 25
 ): Patient[] {
+  const oldestRankByIdx = new Map(
+    [...rows]
+      .map((row, idx) => ({ idx, age: row.age }))
+      .sort((a, b) => b.age - a.age || a.idx - b.idx)
+      .map((item, rank) => [item.idx, rank + 1])
+  );
+
   const scored = rows.map((row, idx) => {
     const score = computeScore(row, heartWeight);
     const patientId = `HF-${String(idx + 1).padStart(4, "0")}`;
@@ -153,18 +160,19 @@ export function rankPatients(
     return b.row.age - a.row.age; // tie-break by age descending
   });
 
-  return scored.map(({ row, score, patientId }, rank) => {
+  return scored.map(({ row, score, patientId, idx }, rank) => {
     const priorityBand =
       rank < capacity ? "higher" : rank < capacity * 2 ? "elevated" : "lower";
 
     return {
       patient_id: patientId,
       rank: rank + 1,
+      oldest_rank: oldestRankByIdx.get(idx) ?? rank + 1,
       priority_band: priorityBand,
       score,
       score_kind: "points",
       organ_risk: {
-        heart: heartScalePosition(row.ejection_fraction),
+        heart: heartRiskFromData(row.ejection_fraction, heartWeight),
         kidney: kidneyScalePosition(row.serum_creatinine),
       },
       facts: {

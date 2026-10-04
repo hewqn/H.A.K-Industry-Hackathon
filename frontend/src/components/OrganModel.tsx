@@ -48,6 +48,7 @@ interface OrganModelProps {
   onClick?: () => void;
   focused?: boolean;
   onReady?: () => void;
+  baseCompare?: boolean;
 }
 
 interface BakedModel {
@@ -145,6 +146,42 @@ function bakeUnitModel(source: THREE.Object3D, label: string): BakedModel {
   return result;
 }
 
+function paintOrgan(
+  group: THREE.Group,
+  organId: "heart" | "kidney",
+  tint: THREE.Color,
+  amount: number
+) {
+  group.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const materials = Array.isArray(child.material)
+      ? child.material
+      : [child.material];
+    for (const material of materials) {
+      if ("color" in material && material.color instanceof THREE.Color) {
+        const base =
+          material.userData.baseColor instanceof THREE.Color
+            ? material.userData.baseColor
+            : new THREE.Color("#ffffff");
+        material.color.copy(base);
+      }
+      if (
+        "emissive" in material &&
+        material.emissive instanceof THREE.Color &&
+        material.userData.baseEmissive instanceof THREE.Color
+      ) {
+        material.emissive.copy(material.userData.baseEmissive);
+      }
+      applyMeshTint(material, tint, amount);
+      if (organId === "kidney" && "roughness" in material) {
+        material.roughness = 2.7;
+      }
+      material.transparent = false;
+      material.opacity = 1;
+    }
+  });
+}
+
 export default function OrganModel({
   url,
   organId,
@@ -156,6 +193,7 @@ export default function OrganModel({
   onClick,
   focused = false,
   onReady,
+  baseCompare = false,
 }: OrganModelProps) {
   const { scene } = useGLTF(url);
   const baked = useMemo(() => bakeUnitModel(scene, organId), [scene, organId]);
@@ -165,8 +203,40 @@ export default function OrganModel({
     typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
+  const targetTint = useRef(new THREE.Color());
+  const currentTint = useRef(new THREE.Color());
+  const targetAmount = useRef(0);
+  const currentAmount = useRef(0);
+  const lookKey = useRef<string | null>(null);
 
-  useFrame((_, delta) => {
+  useLayoutEffect(() => {
+    const look = getOrganLook(
+      colorMode,
+      organId === "heart" ? "heart" : "kidney_left",
+      indicator,
+      riskScore
+    );
+    const nextKey = `${colorMode}:${indicator.value}:${riskScore.toFixed(3)}`;
+    targetTint.current.copy(look.tint);
+    targetAmount.current = baseCompare ? 0 : look.amount;
+
+    if (reduceMotion.current) {
+      currentTint.current.copy(look.tint);
+      currentAmount.current = targetAmount.current;
+      lookKey.current = nextKey;
+      paintOrgan(baked.group, organId, look.tint, targetAmount.current);
+      return;
+    }
+
+    currentTint.current.copy(look.tint);
+    if (lookKey.current !== nextKey) {
+      currentAmount.current = 0;
+      lookKey.current = nextKey;
+      paintOrgan(baked.group, organId, look.tint, 0);
+    }
+  }, [baked, baseCompare, colorMode, indicator, organId, riskScore]);
+
+  useFrame((state, delta) => {
     const group = groupRef.current;
     if (!group) return;
 
@@ -178,50 +248,21 @@ export default function OrganModel({
       return;
     }
 
-    const t = 1 - Math.exp(-14 * delta);
-    const nextScale = THREE.MathUtils.lerp(group.scale.x, targetScale, t);
-    group.scale.setScalar(nextScale);
-  });
-
-  useLayoutEffect(() => {
-    const look = getOrganLook(
-      colorMode,
-      organId === "heart" ? "heart" : "kidney_left",
-      indicator,
-      riskScore
+    const scaleT = 1 - Math.exp(-14 * delta);
+    group.scale.setScalar(
+      THREE.MathUtils.lerp(group.scale.x, targetScale, scaleT)
     );
 
-    baked.group.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
-      const materials = Array.isArray(child.material)
-        ? child.material
-        : [child.material];
-      for (const material of materials) {
-        if ("color" in material && material.color instanceof THREE.Color) {
-          const base =
-            material.userData.baseColor instanceof THREE.Color
-              ? material.userData.baseColor
-              : new THREE.Color("#ffffff");
-          material.color.copy(base);
-        }
-        if (
-          "emissive" in material &&
-          material.emissive instanceof THREE.Color &&
-          material.userData.baseEmissive instanceof THREE.Color
-        ) {
-          material.emissive.copy(material.userData.baseEmissive);
-        }
-        applyMeshTint(material, look.tint, look.amount);
-        if (organId === "kidney" && "roughness" in material) {
-          // Kidney map is a flat 0.22. Three multiplies factor * map,
-          // so 2.7 lands near the heart's 0.6 and keeps the authored map.
-          material.roughness = 2.7;
-        }
-        material.transparent = false;
-        material.opacity = 1;
-      }
-    });
-  }, [baked, colorMode, indicator, organId, riskScore]);
+    const colorT = 1 - Math.exp(-3.4 * delta);
+    currentTint.current.lerp(targetTint.current, colorT);
+    currentAmount.current = THREE.MathUtils.lerp(
+      currentAmount.current,
+      targetAmount.current,
+      colorT
+    );
+
+    paintOrgan(baked.group, organId, currentTint.current, currentAmount.current);
+  });
 
   useLayoutEffect(() => {
     onReady?.();

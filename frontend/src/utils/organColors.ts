@@ -27,6 +27,13 @@ export function riskScalePosition(score: number): number {
   return clamp01(score / 8);
 }
 
+/** Heart heat from EF, plus extra when the weak-heart weight is raised. */
+export function heartRiskFromData(ef: number, heartWeight = 2): number {
+  const base = heartScalePosition(ef);
+  const policyBoost = ef < 35 ? clamp01((heartWeight - 2) / 2) * 0.22 : 0;
+  return clamp01(base + policyBoost);
+}
+
 function heatColor(amount: number): THREE.Color {
   const t = clamp01(amount);
   if (t < 0.5) {
@@ -63,15 +70,15 @@ export function getOrganLook(
     return {
       tint:
         organId === "heart"
-          ? new THREE.Color("#edd4ca")
-          : new THREE.Color("#c9847a"),
-      amount: paleAmount * 0.32,
+          ? new THREE.Color("#f3e0d6")
+          : new THREE.Color("#d4a09a"),
+      amount: 0.18 + paleAmount * 0.5,
     };
   }
 
   const heat = clamp01(organHeat);
   return {
     tint: heatColor(heat),
-    amount: 0.3 + heat * 0.25,
+    amount: 0.42 + heat * 0.38,
   };
 }

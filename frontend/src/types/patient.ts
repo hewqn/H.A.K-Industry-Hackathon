@@ -13,6 +13,7 @@ export interface OrganIndicator {
 export interface Patient {
   patient_id: string;
   rank: number;
+  oldest_rank: number;
   priority_band: PriorityBand;
   score: number;
   score_kind: "points" | "model_output";

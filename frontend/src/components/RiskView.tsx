@@ -23,7 +23,7 @@ export default function RiskView({
         </p>
       </div>
 
-      <ScoreOutput patient={patient} totalPatients={patients.length} />
+      <ScoreOutput patient={patient} />
 
       <div className="weight-control">
         <h3>Heart weight</h3>

@@ -6,6 +6,7 @@ interface ColorLegendProps {
   mode: ColorMode;
   patient?: Patient | null;
   preview?: Patient | null;
+  base?: boolean;
 }
 
 function Scale({
@@ -47,6 +48,7 @@ export default function ColorLegend({
   mode,
   patient,
   preview,
+  base = false,
 }: ColorLegendProps) {
   const previewing =
     preview !== null &&
@@ -61,8 +63,8 @@ export default function ColorLegend({
     const fromModel = patient?.score_kind === "model_output";
 
     return (
-      <div className="color-legend">
-        <p className="color-legend-title">Risk colour</p>
+      <div className={`color-legend ${base ? "is-base" : ""}`}>
+        {base && <p className="color-legend-title">Base model</p>}
         <div className="legend-row">
           <span className="legend-organ">Heart</span>
           <div className="legend-scale">
@@ -129,9 +131,9 @@ export default function ColorLegend({
   const previewCr = previewing ? preview.facts.serum_creatinine : null;
 
   return (
-    <div className="color-legend">
-      <p className="color-legend-title">Tissue colour</p>
-      <div className="legend-row">
+      <div className={`color-legend ${base ? "is-base" : ""}`}>
+        {base && <p className="color-legend-title">Base model</p>}
+        <div className="legend-row">
         <span className="legend-organ">Heart</span>
         <div className="legend-scale">
           <Scale

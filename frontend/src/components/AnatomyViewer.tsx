@@ -11,9 +11,11 @@ type OrganKey = "heart" | "kidney";
 interface AnatomyViewerProps {
   organs: Record<OrganId, OrganIndicator>;
   focusedOrgan: OrganId | null;
-  onOrganSelect: (organ: OrganId) => void;
+  onOrganSelect: (organ: OrganId | null) => void;
   colorMode?: ColorMode;
   organRisk?: { heart: number; kidney: number };
+  applyColour?: { heart: boolean; kidney: boolean };
+  onApplyColourChange?: (organ: OrganKey, on: boolean) => void;
 }
 
 function FrameOrgan({ distance }: { distance: number }) {
@@ -48,6 +50,8 @@ function OrganCanvas({
   onSelect,
   onToggleExpand,
   label,
+  applyColour,
+  onApplyColourChange,
 }: {
   url: string;
   organId: OrganKey;
@@ -60,6 +64,8 @@ function OrganCanvas({
   onSelect: () => void;
   onToggleExpand: () => void;
   label: string;
+  applyColour: boolean;
+  onApplyColourChange: (on: boolean) => void;
 }) {
   const [ready, setReady] = useState(false);
   const distance = expanded ? 1.75 : 2.15;
@@ -74,6 +80,14 @@ function OrganCanvas({
       <div
         className={`organ-viewport ${focused ? "focused" : ""} ${expanded ? "expanded" : ""}`}
       >
+        <label className="organ-colour-check">
+          <input
+            type="checkbox"
+            checked={applyColour}
+            onChange={(event) => onApplyColourChange(event.target.checked)}
+          />
+          Show Colour
+        </label>
         {!ready && (
           <div className="organ-loader" role="status" aria-live="polite">
             <span className="organ-spinner" />
@@ -104,6 +118,7 @@ function OrganCanvas({
               onClick={onSelect}
               focused={focused}
               onReady={markReady}
+              baseCompare={!applyColour}
             />
           </Suspense>
 
@@ -117,28 +132,27 @@ function OrganCanvas({
           <FrameOrgan distance={distance} />
         </Canvas>
 
-        {expanded ? (
-          <button
-            type="button"
-            className="viewport-close"
-            onClick={onToggleExpand}
-          >
-            Close
-            <span className="viewport-close-key">Esc</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="viewport-expand"
-            onClick={onToggleExpand}
-            aria-label={`Expand ${label}`}
-            title="Full screen"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M6 3H3v3M10 3h3v3M3 10v3h3M13 10v3h-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        )}
+        <button
+          type="button"
+          className="viewport-expand"
+          onClick={onToggleExpand}
+          aria-label={expanded ? `Minimize ${label}` : `Expand ${label}`}
+          title={expanded ? "Minimize" : "Expand"}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d={
+                expanded
+                  ? "M3 6h3V3M13 6h-3V3M3 10h3v3M13 10h-3v3"
+                  : "M6 3H3v3M10 3h3v3M3 10v3h3M13 10v3h-3"
+              }
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -150,6 +164,8 @@ export default function AnatomyViewer({
   onOrganSelect,
   colorMode = "anatomy",
   organRisk = { heart: 0, kidney: 0 },
+  applyColour = { heart: true, kidney: true },
+  onApplyColourChange,
 }: AnatomyViewerProps) {
   const [expanded, setExpanded] = useState<OrganKey | null>(null);
 
@@ -179,7 +195,11 @@ export default function AnatomyViewer({
         focused={focusedOrgan === "heart"}
         expanded={expanded === "heart"}
         hidden={expanded === "kidney"}
-        onSelect={() => onOrganSelect("heart")}
+        applyColour={applyColour.heart}
+        onApplyColourChange={(on) => onApplyColourChange?.("heart", on)}
+        onSelect={() =>
+          onOrganSelect(focusedOrgan === "heart" ? null : "heart")
+        }
         onToggleExpand={() =>
           setExpanded((current) => (current === "heart" ? null : "heart"))
         }
@@ -194,7 +214,15 @@ export default function AnatomyViewer({
         focused={focusedOrgan === "kidney_left" || focusedOrgan === "kidney_right"}
         expanded={expanded === "kidney"}
         hidden={expanded === "heart"}
-        onSelect={() => onOrganSelect("kidney_left")}
+        applyColour={applyColour.kidney}
+        onApplyColourChange={(on) => onApplyColourChange?.("kidney", on)}
+        onSelect={() =>
+          onOrganSelect(
+            focusedOrgan === "kidney_left" || focusedOrgan === "kidney_right"
+              ? null
+              : "kidney_left"
+          )
+        }
         onToggleExpand={() =>
           setExpanded((current) => (current === "kidney" ? null : "kidney"))
         }

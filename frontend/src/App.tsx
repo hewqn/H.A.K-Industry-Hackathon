@@ -1,22 +1,21 @@
 import { useState, useEffect } from "react";
 import AnatomyViewer from "./components/AnatomyViewer";
-import RiskView from "./components/RiskView";
 import AnatomyView from "./components/AnatomyView";
 import Top25Table from "./components/Top25Table";
 import ColorLegend from "./components/ColorLegend";
 import { parseCSV, rankPatients } from "./utils/scoring";
 import type { Patient, OrganId } from "./types/patient";
+import type { ColorMode } from "./utils/organColors";
 import "./App.css";
-
-type ViewMode = "anatomy" | "risk";
 
 export default function App() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("anatomy");
+  const [colorMode, setColorMode] = useState<ColorMode>("risk");
   const [heartWeight, setHeartWeight] = useState(2);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [applyColour, setApplyColour] = useState({ heart: true, kidney: true });
 
   useEffect(() => {
     fetch("/data/heart_failure_clinical_records.csv")
@@ -42,26 +41,29 @@ export default function App() {
         <div className="topnav-left">
           <span className="logo">H.A.K The Heart Failure</span>
         </div>
-        <div className="topnav-right">
-          <div className="view-toggle">
-            <button
-              className={viewMode === "anatomy" ? "active" : ""}
-              onClick={() => setViewMode("anatomy")}
-            >
-              Anatomy
-            </button>
-            <button
-              className={viewMode === "risk" ? "active" : ""}
-              onClick={() => setViewMode("risk")}
-            >
-              Risk Assessment
-            </button>
-          </div>
-        </div>
       </nav>
 
       <div className="legend-strip">
-        <ColorLegend mode={viewMode} patient={selected} preview={preview} />
+        <div className="view-toggle" role="group" aria-label="How organs are coloured">
+          <button
+            className={colorMode === "risk" ? "active" : ""}
+            onClick={() => setColorMode("risk")}
+          >
+            Risk Score
+          </button>
+          <button
+            className={colorMode === "anatomy" ? "active" : ""}
+            onClick={() => setColorMode("anatomy")}
+          >
+            Tissue State
+          </button>
+        </div>
+        <ColorLegend
+          mode={colorMode}
+          patient={selected}
+          preview={preview}
+          base={!applyColour.heart && !applyColour.kidney}
+        />
       </div>
 
       <main className="main-content">
@@ -72,34 +74,23 @@ export default function App() {
                 organs={selected.organs}
                 focusedOrgan={focusedOrgan}
                 onOrganSelect={setFocusedOrgan}
-                colorMode={viewMode === "risk" ? "risk" : "anatomy"}
+                colorMode={colorMode}
                 organRisk={selected.organ_risk}
+                applyColour={applyColour}
+                onApplyColourChange={(organ, on) =>
+                  setApplyColour((current) => ({ ...current, [organ]: on }))
+                }
               />
             </div>
             <div className="workspace-side">
-              <div className="workspace-views">
-                <div
-                  className={`view-layer ${viewMode === "anatomy" ? "active" : ""}`}
-                >
-                  <AnatomyView
-                    key={selected.patient_id}
-                    patient={selected}
-                    totalPatients={patients.length}
-                    focusedOrgan={focusedOrgan}
-                    onOrganSelect={setFocusedOrgan}
-                  />
-                </div>
-                <div
-                  className={`view-layer ${viewMode === "risk" ? "active" : ""}`}
-                >
-                  <RiskView
-                    patient={selected}
-                    patients={patients}
-                    heartWeight={heartWeight}
-                    onHeartWeightChange={setHeartWeight}
-                  />
-                </div>
-              </div>
+              <AnatomyView
+                key={selected.patient_id}
+                patient={selected}
+                focusedOrgan={focusedOrgan}
+                onOrganSelect={setFocusedOrgan}
+                heartWeight={heartWeight}
+                onHeartWeightChange={setHeartWeight}
+              />
               <Top25Table
                 patients={patients}
                 selectedId={selected.patient_id}
