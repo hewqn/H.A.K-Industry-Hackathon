@@ -26,7 +26,14 @@ export interface Health { mode: string; voice: string; pending_sync: number; pro
 export interface VoiceSession { signed_url: string; snapshot_id: string; patient_id: string | null; max_duration_seconds: number }
 
 export class ApiError extends Error {
-  constructor(public code: string, message: string, public status: number) { super(message); }
+  code: string;
+  status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
