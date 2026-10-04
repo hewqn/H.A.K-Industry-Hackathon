@@ -17,7 +17,7 @@ export default function App() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedOrgan, setFocusedOrgan] = useState<OrganId | null>(null);
-  const [colorMode, setColorMode] = useState<ColorMode>("anatomy");
+  const [colorMode, setColorMode] = useState<ColorMode>("risk");
   const [queueMode, setQueueMode] = useState<QueueMode>("model");
   const [caseReport, setCaseReport] = useState<CaseReportData | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
