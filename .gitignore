@@ -218,3 +218,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local dependencies and generated development artifacts are never repository source.
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+runtime/
+artifacts/demo/
+artifacts/local-model/
+*.joblib
+.DS_Store
+playwright-report/
+test-results/
+databricks/capabilities.local.json

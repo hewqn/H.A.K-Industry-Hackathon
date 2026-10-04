@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hf-followup"
+version = "0.1.0"
+description = "Evidence-grounded heart-failure follow-up hackathon prototype"
+requires-python = ">=3.11"
+dependencies = ["fastapi==0.118.0", "uvicorn==0.37.0", "pydantic==2.12.0", "python-dotenv==1.1.1", "httpx==0.28.1"]
+
+[project.optional-dependencies]
+ml = ["numpy==2.3.3", "pandas==2.3.3", "scikit-learn==1.7.2", "joblib==1.5.2"]
+databricks = ["databricks-sql-connector==4.1.3", "mlflow==3.4.0"]
+dev = ["pytest==8.4.2", "ruff==0.13.2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "B008"]
