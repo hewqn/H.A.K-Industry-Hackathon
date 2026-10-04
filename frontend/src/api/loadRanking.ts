@@ -42,6 +42,8 @@ interface ApiRow {
 }
 
 interface Snapshot {
+  snapshot_id: string;
+  cohort_id: string;
   method_id: string;
   rows: ApiRow[];
 }
@@ -141,7 +143,32 @@ export function apiMethodForWeight(heartWeight: number): "points_v1" | "points_h
   return null;
 }
 
-async function rankFromApi(heartWeight: number): Promise<Patient[]> {
+// Retain the exact snapshot shown on screen for every voice evidence request.
+export interface RankingContext {
+  snapshot_id: string;
+  cohort_id: string;
+  method_id: string;
+}
+
+export interface LoadedRanking {
+  patients: Patient[];
+  source: "api" | "local";
+  context: RankingContext | null;
+}
+
+function fromSnapshot(snapshot: Snapshot, heartWeight: number): LoadedRanking {
+  return {
+    patients: snapshot.rows.map((row) => adaptRow(row, heartWeight)),
+    source: "api",
+    context: {
+      snapshot_id: snapshot.snapshot_id,
+      cohort_id: snapshot.cohort_id,
+      method_id: snapshot.method_id,
+    },
+  };
+}
+
+async function rankFromApi(heartWeight: number): Promise<LoadedRanking> {
   const methodId = apiMethodForWeight(heartWeight);
   if (!methodId) throw new Error("api_method_unavailable");
 
@@ -153,7 +180,7 @@ async function rankFromApi(heartWeight: number): Promise<Patient[]> {
       `/ranking-snapshots/${cohort.current_snapshot_id}`,
     );
     if (existing.method_id === "points_v1") {
-      return existing.rows.map((row) => adaptRow(row, heartWeight));
+      return fromSnapshot(existing, heartWeight);
     }
   }
 
@@ -164,7 +191,7 @@ async function rankFromApi(heartWeight: number): Promise<Patient[]> {
     capacity: 25,
     mode: "operational",
   });
-  return mutation.snapshot.rows.map((row) => adaptRow(row, heartWeight));
+  return fromSnapshot(mutation.snapshot, heartWeight);
 }
 
 async function rankFromCsv(heartWeight: number): Promise<Patient[]> {
@@ -177,16 +204,13 @@ async function rankFromCsv(heartWeight: number): Promise<Patient[]> {
   return rankPatients(parseCSV(text), heartWeight, 25);
 }
 
-export async function loadRanking(heartWeight: number): Promise<{
-  patients: Patient[];
-  source: "api" | "local";
-}> {
+export async function loadRanking(heartWeight: number): Promise<LoadedRanking> {
   try {
-    const patients = await rankFromApi(heartWeight);
-    if (patients.length === 0) throw new Error("empty");
-    return { patients, source: "api" };
+    const result = await rankFromApi(heartWeight);
+    if (result.patients.length === 0) throw new Error("empty");
+    return result;
   } catch {
     const patients = await rankFromCsv(heartWeight);
-    return { patients, source: "local" };
+    return { patients, source: "local", context: null };
   }
 }

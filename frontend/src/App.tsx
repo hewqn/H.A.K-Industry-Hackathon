@@ -3,7 +3,9 @@ import AnatomyViewer from "./components/AnatomyViewer";
 import AnatomyView from "./components/AnatomyView";
 import Top25Table from "./components/Top25Table";
 import ColorLegend from "./components/ColorLegend";
+import VoicePanel from "./components/VoicePanel";
 import { loadRanking } from "./api/loadRanking";
+import type { RankingContext } from "./api/loadRanking";
 import type { Patient, OrganId } from "./types/patient";
 import type { ColorMode } from "./utils/organColors";
 import "./App.css";
@@ -17,19 +19,32 @@ export default function App() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [applyColour, setApplyColour] = useState({ heart: true, kidney: true });
   const [source, setSource] = useState<"api" | "local">("local");
+  const [rankingContext, setRankingContext] = useState<RankingContext | null>(null);
+  const [loadedWeight, setLoadedWeight] = useState<number | null>(null);
+  const rankingLoading = loadedWeight !== heartWeight;
+  const [rankingError, setRankingError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
-    loadRanking(heartWeight).then(({ patients: ranked, source: nextSource }) => {
+    loadRanking(heartWeight).then(({ patients: ranked, source: nextSource, context }) => {
       if (cancelled) return;
       setPatients(ranked);
       setSource(nextSource);
+      setRankingContext(context);
+      setLoadedWeight(heartWeight);
+      setRankingError("");
       setSelectedId((current) =>
         current && ranked.some((patient) => patient.patient_id === current)
           ? current
           : (ranked[0]?.patient_id ?? null),
       );
+    }).catch(() => {
+      if (!cancelled) {
+        setRankingContext(null);
+        setLoadedWeight(heartWeight);
+        setRankingError("Patient data could not be loaded. Check the API or bundled CSV.");
+      }
     });
 
     return () => {
@@ -74,6 +89,7 @@ export default function App() {
       </div>
 
       <main className="main-content">
+        {!rankingLoading && rankingError && <p role="alert">{rankingError}</p>}
         {selected ? (
           <div className="workspace">
             <div className="organ-viewer">
@@ -97,6 +113,15 @@ export default function App() {
                 onOrganSelect={setFocusedOrgan}
                 heartWeight={heartWeight}
                 onHeartWeightChange={setHeartWeight}
+              />
+              <VoicePanel
+                key={`${rankingLoading ? "loading" : rankingContext?.snapshot_id ?? "local"}:${selectedId}:${heartWeight}`}
+                context={rankingContext}
+                patient={selected}
+                patients={patients}
+                loading={rankingLoading}
+                onSelectPatient={setSelectedId}
+                onFocusOrgan={setFocusedOrgan}
               />
               <Top25Table
                 patients={patients}

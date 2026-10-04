@@ -55,44 +55,6 @@
         }
       }
     },
-    "/api/v1/ranking-snapshots": {
-      "post": {
-        "summary": "Create Snapshot",
-        "operationId": "create_snapshot_api_v1_ranking_snapshots_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SnapshotRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MutationResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/ranking-snapshots/{snapshot_id}": {
       "get": {
         "summary": "Snapshot",
@@ -266,6 +228,44 @@
         }
       }
     },
+    "/api/v1/ranking-snapshots": {
+      "post": {
+        "summary": "Create Snapshot",
+        "operationId": "create_snapshot_api_v1_ranking_snapshots_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/patients/{patient_id}/workflow": {
       "patch": {
         "summary": "Workflow",
@@ -389,12 +389,47 @@
       "get": {
         "summary": "Audit Events",
         "operationId": "audit_events_api_v1_audit_events_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -412,6 +447,7 @@
             "required": true,
             "schema": {
               "type": "string",
+              "maxLength": 100,
               "title": "Snapshot Id"
             }
           }
@@ -438,10 +474,10 @@
         }
       }
     },
-    "/api/v1/voice/session": {
+    "/api/v1/voice/context": {
       "post": {
-        "summary": "Voice Session",
-        "operationId": "voice_session_api_v1_voice_session_post",
+        "summary": "Voice Context",
+        "operationId": "voice_context_api_v1_voice_context_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -457,7 +493,47 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceContextRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/session": {
+      "post": {
+        "summary": "Voice Session",
+        "operationId": "voice_session_api_v1_voice_session_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSessionRead"
+                }
               }
             }
           },
@@ -670,6 +746,7 @@
           "snapshot_id": {
             "type": "string",
             "maxLength": 100,
+            "minLength": 1,
             "title": "Snapshot Id"
           },
           "patient_id": {
@@ -1562,6 +1639,7 @@
           "snapshot_id": {
             "type": "string",
             "maxLength": 100,
+            "minLength": 1,
             "title": "Snapshot Id"
           },
           "patient_id": {
@@ -1581,10 +1659,11 @@
             "maximum": 5.0,
             "minimum": 1.0,
             "title": "Limit",
-            "default": 5
+            "default": 3
           },
           "report_id": {
             "type": "string",
+            "maxLength": 100,
             "title": "Report Id",
             "default": "case-benchmark-v1"
           },
@@ -1633,6 +1712,155 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VoiceContextRead": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "title": "Snapshot Id"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id"
+          },
+          "method_id": {
+            "type": "string",
+            "title": "Method Id"
+          },
+          "tool_token": {
+            "type": "string",
+            "title": "Tool Token"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At"
+          },
+          "max_duration_seconds": {
+            "type": "integer",
+            "title": "Max Duration Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "patient_id",
+          "cohort_id",
+          "method_id",
+          "tool_token",
+          "expires_at",
+          "max_duration_seconds"
+        ],
+        "title": "VoiceContextRead"
+      },
+      "VoiceSessionRead": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "title": "Snapshot Id"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "cohort_id": {
+            "type": "string",
+            "title": "Cohort Id"
+          },
+          "method_id": {
+            "type": "string",
+            "title": "Method Id"
+          },
+          "tool_token": {
+            "type": "string",
+            "title": "Tool Token"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At"
+          },
+          "max_duration_seconds": {
+            "type": "integer",
+            "title": "Max Duration Seconds"
+          },
+          "signed_url": {
+            "type": "string",
+            "title": "Signed Url"
+          },
+          "connection_type": {
+            "type": "string",
+            "const": "websocket",
+            "title": "Connection Type",
+            "default": "websocket"
+          },
+          "text_only": {
+            "type": "boolean",
+            "title": "Text Only"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "patient_id",
+          "cohort_id",
+          "method_id",
+          "tool_token",
+          "expires_at",
+          "max_duration_seconds",
+          "signed_url",
+          "text_only"
+        ],
+        "title": "VoiceSessionRead"
+      },
+      "VoiceSessionRequest": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Snapshot Id"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^HF-\\d{4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "text_only": {
+            "type": "boolean",
+            "title": "Text Only",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "snapshot_id"
+        ],
+        "title": "VoiceSessionRequest"
       },
       "Workflow": {
         "properties": {

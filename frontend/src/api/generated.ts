@@ -55,23 +55,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/ranking-snapshots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Snapshot */
-        post: operations["create_snapshot_api_v1_ranking_snapshots_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/ranking-snapshots/{snapshot_id}": {
         parameters: {
             query?: never;
@@ -134,6 +117,23 @@ export interface paths {
         put?: never;
         /** Comparison */
         post: operations["comparison_api_v1_comparisons_heart_weight_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ranking-snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Snapshot */
+        post: operations["create_snapshot_api_v1_ranking_snapshots_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -219,6 +219,23 @@ export interface paths {
         get: operations["export_api_v1_exports_queue_csv_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Voice Context */
+        post: operations["voice_context_api_v1_voice_context_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -638,7 +655,7 @@ export interface components {
             patient_id?: string | null;
             /**
              * Limit
-             * @default 5
+             * @default 3
              */
             limit: number;
             /**
@@ -660,6 +677,62 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VoiceContextRead */
+        VoiceContextRead: {
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Patient Id */
+            patient_id: string | null;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Method Id */
+            method_id: string;
+            /** Tool Token */
+            tool_token: string;
+            /** Expires At */
+            expires_at: number;
+            /** Max Duration Seconds */
+            max_duration_seconds: number;
+        };
+        /** VoiceSessionRead */
+        VoiceSessionRead: {
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Patient Id */
+            patient_id: string | null;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Method Id */
+            method_id: string;
+            /** Tool Token */
+            tool_token: string;
+            /** Expires At */
+            expires_at: number;
+            /** Max Duration Seconds */
+            max_duration_seconds: number;
+            /** Signed Url */
+            signed_url: string;
+            /**
+             * Connection Type
+             * @default websocket
+             * @constant
+             */
+            connection_type: "websocket";
+            /** Text Only */
+            text_only: boolean;
+        };
+        /** VoiceSessionRequest */
+        VoiceSessionRequest: {
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Patient Id */
+            patient_id?: string | null;
+            /**
+             * Text Only
+             * @default false
+             */
+            text_only: boolean;
         };
         /** Workflow */
         Workflow: {
@@ -750,39 +823,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-        };
-    };
-    create_snapshot_api_v1_ranking_snapshots_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SnapshotRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MutationResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -919,6 +959,39 @@ export interface operations {
             };
         };
     };
+    create_snapshot_api_v1_ranking_snapshots_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MutationResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     workflow_api_v1_patients__patient_id__workflow_patch: {
         parameters: {
             query?: never;
@@ -1022,7 +1095,10 @@ export interface operations {
     };
     audit_events_api_v1_audit_events_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1036,6 +1112,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1071,7 +1156,7 @@ export interface operations {
             };
         };
     };
-    voice_session_api_v1_voice_session_post: {
+    voice_context_api_v1_voice_context_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1090,7 +1175,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VoiceContextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_session_api_v1_voice_session_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSessionRead"];
                 };
             };
             /** @description Validation Error */

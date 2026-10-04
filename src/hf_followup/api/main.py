@@ -1,13 +1,14 @@
 """Backend API with durable persistence, workflow, overrides, and audit.
 
-/api/v1/docs contracts are available at /docs. Voice routes remain 503 TODOs
-for the integrating owner. All mutations go through the command protocol (PRD §25).
+/api/v1/docs contracts are available at /docs. Voice uses browser client tools
+with scoped local evidence grants. Mutations use the command protocol (PRD §25).
 """
 
 import os
 import uuid
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -25,6 +26,9 @@ from hf_followup.api.schemas import (
     Summary,
     SummaryRequest,
     ToolRequest,
+    VoiceContextRead,
+    VoiceSessionRead,
+    VoiceSessionRequest,
     WorkflowRequest,
 )
 from hf_followup.config import Settings
@@ -32,6 +36,7 @@ from hf_followup.data.ingest import ingest_csv
 from hf_followup.domain.errors import DomainError
 from hf_followup.evaluation.benchmark import case_benchmark
 from hf_followup.services.application import ApplicationService
+from hf_followup.services.voice import VoiceService
 
 
 def _create_repository(settings: Settings):
@@ -71,14 +76,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.repo_mode = repo_mode
         app.state.service = ApplicationService(ingestion.cohort, report, settings, repository=repo)
         del ingestion  # Release evaluator labels before the application starts serving requests.
-        yield
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as voice_client:
+            app.state.voice = VoiceService(settings, app.state.service, voice_client)
+            yield
 
     app = FastAPI(title="Heart-failure follow-up scaffold", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.origins,
         allow_methods=["GET", "POST", "PATCH"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "Authorization"],
     )
 
     @app.middleware("http")
@@ -86,6 +93,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request.state.request_id = str(uuid.uuid4())
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
+        if request.url.path.startswith("/api/v1/voice/"):
+            response.headers["Cache-Control"] = "no-store"
         return response
 
     @app.exception_handler(DomainError)
@@ -103,12 +112,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def service(request: Request) -> ApplicationService:
         return request.app.state.service
 
-    def unfinished(requirement: str):
-        raise DomainError(
-            "integration_pending",
-            f"{requirement} integration is intentionally left for its owner. See docs/development.md.",
-            503,
-        )
+    def voice_service(request: Request) -> VoiceService:
+        svc = request.app.state.voice
+        svc.require_origin(request.headers.get("origin"))
+        return svc
 
     prefix = "/api/v1"
 
@@ -122,7 +129,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "core": "ready",
             "mode": request.app.state.repo_mode,
             "databricks": "connected" if request.app.state.repo_mode == "databricks" else "not_connected",
-            "voice": "not_connected",
+            "voice": "configured" if request.app.state.voice.configured else "not_configured",
             "persistence": request.app.state.repo_mode,
         }
 
@@ -214,16 +221,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     # ------------------------------------------------------------------
-    # Voice (not ours — still 503)
+    # Voice: provider credentials stay here; browser tools carry scoped grants.
     # ------------------------------------------------------------------
 
-    @app.post(prefix + "/voice/session")
-    def voice_session(body: ContextRequest):
-        return unfinished("ElevenLabs private session (VOICE-01)")
+    @app.post(prefix + "/voice/context", response_model=VoiceContextRead)
+    def voice_context(body: ContextRequest, request: Request, svc=Depends(voice_service)):
+        # Text evidence has no provider dependency and consumes no voice credits.
+        svc.rate_limit(request.client.host if request.client else "local")
+        return svc.context(body)
+
+    @app.post(prefix + "/voice/session", response_model=VoiceSessionRead)
+    async def voice_session(body: VoiceSessionRequest, request: Request, svc=Depends(voice_service)):
+        svc.rate_limit(request.client.host if request.client else "local")
+        return await svc.session(body)
 
     @app.post(prefix + "/voice/tools/{tool_name}")
-    def voice_tool(tool_name: str, body: ToolRequest):
-        return unfinished("Authenticated evidence tools (VOICE-01)")
+    def voice_tool(tool_name: str, body: ToolRequest, request: Request, svc=Depends(voice_service)):
+        authorization = request.headers.get("authorization", "")
+        token = authorization[7:] if authorization.startswith("Bearer ") else None
+        return svc.tool(tool_name, body, token)
 
     return app
 

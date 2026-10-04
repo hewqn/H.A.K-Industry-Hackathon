@@ -23,7 +23,8 @@ export interface Benchmark {
 export interface Models { methods: Method[]; reports: { benchmark: Benchmark; supervised?: ModelReport } }
 export interface Audit { event_id: string; action: string; patient_id: string | null; reason: string | null; revision: number; created_at: string; sync_status: string }
 export interface Health { mode: string; voice: string; pending_sync: number; provenance: string }
-export interface VoiceSession { signed_url: string; snapshot_id: string; patient_id: string | null; max_duration_seconds: number }
+export type VoiceContext = components["schemas"]["VoiceContextRead"];
+export type VoiceSession = components["schemas"]["VoiceSessionRead"];
 
 export class ApiError extends Error {
   code: string;
