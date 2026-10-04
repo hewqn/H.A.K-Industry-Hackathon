@@ -50,16 +50,16 @@ export default function ColorLegend({
   preview,
   base = false,
 }: ColorLegendProps) {
-  const previewing =
-    preview !== null &&
-    preview !== undefined &&
-    preview.patient_id !== patient?.patient_id;
+  const compared =
+    preview != null && preview.patient_id !== patient?.patient_id
+      ? preview
+      : null;
 
   if (mode === "risk") {
     const heartRisk = patient?.organ_risk.heart ?? null;
     const kidneyRisk = patient?.organ_risk.kidney ?? null;
-    const previewHeart = previewing ? preview.organ_risk.heart : null;
-    const previewKidney = previewing ? preview.organ_risk.kidney : null;
+    const previewHeart = compared?.organ_risk.heart ?? null;
+    const previewKidney = compared?.organ_risk.kidney ?? null;
     const fromModel = patient?.score_kind === "model_output";
 
     return (
@@ -80,11 +80,11 @@ export default function ColorLegend({
               }
               previewPosition={previewHeart}
               previewLabel={
-                previewHeart === null
+                previewHeart === null || compared == null
                   ? null
-                  : preview.score_kind === "model_output"
+                  : compared.score_kind === "model_output"
                     ? previewHeart.toFixed(2)
-                    : `${preview.facts.ejection_fraction}%`
+                    : `${compared.facts.ejection_fraction}%`
               }
             />
             <div className="legend-ends">
@@ -108,11 +108,11 @@ export default function ColorLegend({
               }
               previewPosition={previewKidney}
               previewLabel={
-                previewKidney === null
+                previewKidney === null || compared == null
                   ? null
-                  : preview.score_kind === "model_output"
+                  : compared.score_kind === "model_output"
                     ? previewKidney.toFixed(2)
-                    : String(preview.facts.serum_creatinine)
+                    : String(compared.facts.serum_creatinine)
               }
             />
             <div className="legend-ends">
@@ -127,8 +127,8 @@ export default function ColorLegend({
 
   const ef = patient?.facts.ejection_fraction ?? null;
   const cr = patient?.facts.serum_creatinine ?? null;
-  const previewEf = previewing ? preview.facts.ejection_fraction : null;
-  const previewCr = previewing ? preview.facts.serum_creatinine : null;
+  const previewEf = compared?.facts.ejection_fraction ?? null;
+  const previewCr = compared?.facts.serum_creatinine ?? null;
 
   return (
       <div className={`color-legend ${base ? "is-base" : ""}`}>

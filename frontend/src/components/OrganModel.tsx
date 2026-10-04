@@ -236,7 +236,7 @@ export default function OrganModel({
     }
   }, [baked, baseCompare, colorMode, indicator, organId, riskScore]);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     const group = groupRef.current;
     if (!group) return;
 

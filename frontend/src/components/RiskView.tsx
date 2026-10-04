@@ -10,7 +10,6 @@ interface RiskViewProps {
 
 export default function RiskView({
   patient,
-  patients,
   heartWeight,
   onHeartWeightChange,
 }: RiskViewProps) {
