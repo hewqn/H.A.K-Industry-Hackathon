@@ -42,16 +42,22 @@ for Python/batch inference, thresholds and the database/3D handoff.
   separate missing-row/cell counts, and an explicit predictor allowlist.
 - Shared points/age ranking, heart-only revision, deterministic ties, queue calculation,
   organ indicators, and descriptive benchmark (18/21/19 outcomes; overlap 22/25).
-- Read-only FastAPI data slice and typed patient/evidence/snapshot contracts.
+- FastAPI reads, patient CRUD, workflow/override commands, audit and queue export,
+  with typed patient/evidence/snapshot contracts and local SQLite persistence.
 - Small React queue/selection layout with stale-response checks and factual summaries.
 - **No generated 3D models.** Typed viewer/asset handoff and usable text cards for the
   engineer; the rendering adapter is intentionally left for them to implement.
 - Frozen training/inference/publication scripts, runnable ML experiments, Delta export, repository
   interface, API wiring TODOs, and owner handoff notes.
+- Private ElevenLabs voice/text sessions, seven scoped client tools, factual fallback,
+  transcript and playback lifecycle. See [voice setup](docs/elevenlabs-integration.md).
 
-Snapshots are in memory and disappear on restart. Workflow, override, audit, export,
-voice, live Databricks, final 3D, and provider-summary integrations remain unfinished.
-Their routes fail explicitly until implemented; a file or route does not claim completion.
+The API loads published ML outputs without fitting during requests. Voice uses the
+exact displayed backend snapshot; browser-combined ML/points lists retain factual
+fallback until an equivalent backend ranking is published. Live Databricks evidence,
+device microphone/playback QA, final 3D acceptance and provider summaries remain
+owner work. Implemented local routes and automated tests do not establish a completed
+production or clinical system.
 
 ## Where each owner starts
 

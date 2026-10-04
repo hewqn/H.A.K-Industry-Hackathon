@@ -358,14 +358,16 @@ class TestCSVExport:
 # ------------------------------------------------------------------
 
 
-class TestVoiceStill503:
+class TestVoiceRequiresOrigin:
     def test_voice_session(self, client):
         resp = client.post("/api/v1/voice/session", json={"snapshot_id": "x"})
-        assert resp.status_code == 503
+        assert resp.status_code == 403
+        assert resp.json()["code"] == "voice_origin_denied"
 
     def test_voice_tools(self, client):
         resp = client.post("/api/v1/voice/tools/get_queue", json={"snapshot_id": "x"})
-        assert resp.status_code == 503
+        assert resp.status_code == 403
+        assert resp.json()["code"] == "voice_origin_denied"
 
 
 # ------------------------------------------------------------------

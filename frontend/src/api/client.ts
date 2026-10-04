@@ -53,7 +53,9 @@ export interface Health {
   pending_sync?: number;
   provenance?: string;
 }
-export interface VoiceSession { signed_url: string; snapshot_id: string; patient_id: string | null; max_duration_seconds: number }
+// Keep the full generated private-session contract, including expiring tool grants.
+export type VoiceContext = components["schemas"]["VoiceContextRead"];
+export type VoiceSession = components["schemas"]["VoiceSessionRead"];
 
 export class ApiError extends Error {
   code: string;

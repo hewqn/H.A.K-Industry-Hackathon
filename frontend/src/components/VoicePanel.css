@@ -1,0 +1,21 @@
+/* Uses the existing dashboard palette; the anatomy canvas is unaffected. */
+.voice-panel { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--white); flex-shrink: 0; }
+.voice-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.voice-heading h3 { font-size: 14px; }
+.voice-heading span, .voice-context, .voice-note { color: var(--text-secondary); font-size: 12px; }
+.voice-context, .voice-note { margin: 6px 0; }
+.voice-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.voice-panel button { border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); padding: 6px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+.voice-panel button:hover:enabled { border-color: var(--accent); }
+.voice-panel button:disabled { opacity: .5; cursor: default; }
+.voice-panel button[aria-pressed="true"] { background: var(--accent-light); }
+.voice-panel button:focus-visible, .voice-panel input:focus-visible, .voice-panel summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.voice-error { color: var(--danger); font-size: 12px; margin: 8px 0; }
+.voice-input { margin-top: 10px; }
+.voice-input label { display: block; font-size: 12px; margin-bottom: 4px; }
+.voice-input div { display: flex; gap: 6px; }
+.voice-input input { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 12px; }
+.voice-transcript { margin-top: 10px; font-size: 12px; }
+.voice-transcript summary { cursor: pointer; color: var(--text-secondary); }
+.voice-transcript [role="log"] { max-height: 150px; overflow: auto; margin-top: 6px; white-space: pre-wrap; }
+.voice-transcript p { padding: 4px 0; line-height: 1.5; }

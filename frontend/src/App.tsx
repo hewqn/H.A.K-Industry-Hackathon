@@ -4,7 +4,8 @@ import AnatomyView, { PatientRecord } from "./components/AnatomyView";
 import Top25Table from "./components/Top25Table";
 import ColorLegend from "./components/ColorLegend";
 import CaseReport from "./components/CaseReport";
-import { loadRanking, type QueueMode } from "./api/loadRanking";
+import VoicePanel from "./components/VoicePanel";
+import { loadRanking, type QueueMode, type RankingContext } from "./api/loadRanking";
 import { loadCaseReport, type CaseReport as CaseReportData } from "./api/loadCaseReport";
 import type { Patient, OrganId } from "./types/patient";
 import {
@@ -24,17 +25,36 @@ export default function App() {
   const [applyColour, setApplyColour] = useState({ heart: true, kidney: true });
   const [source, setSource] = useState<"api" | "local">("local");
   const [method, setMethod] = useState("points_local");
+  const [rankingContext, setRankingContext] = useState<RankingContext | null>(null);
+  const [loadedMode, setLoadedMode] = useState<QueueMode | null>(null);
+  const [rankingError, setRankingError] = useState("");
+  // Switching modes immediately disables and ends the old voice session, before
+  // the next ranking arrives. A cancelled response cannot restore its context.
+  const rankingLoading = loadedMode !== queueMode;
 
   useEffect(() => {
     let cancelled = false;
 
-    loadRanking(queueMode).then(({ patients: ranked, source: nextSource, method: nextMethod }) => {
+    loadRanking(queueMode).then(({ patients: ranked, source: nextSource, method: nextMethod, context }) => {
       if (cancelled) return;
       setPatients(ranked);
       setSource(nextSource);
       setMethod(nextMethod);
-      setSelectedId(ranked[0]?.patient_id ?? null);
+      setRankingContext(context);
+      setLoadedMode(queueMode);
+      setRankingError("");
+      setSelectedId((current) =>
+        current && ranked.some((patient) => patient.patient_id === current)
+          ? current
+          : (ranked[0]?.patient_id ?? null),
+      );
       setPreviewId(null);
+    }).catch(() => {
+      if (cancelled) return;
+      setPatients([]);
+      setRankingContext(null);
+      setLoadedMode(queueMode);
+      setRankingError("Patient data could not be loaded. Check the API or bundled CSV.");
     });
 
     return () => {
@@ -103,6 +123,7 @@ export default function App() {
       </div>
 
       <main className="main-content">
+        {!rankingLoading && rankingError && <p role="alert">{rankingError}</p>}
         {selected ? (
           <div className="workspace">
             <div className="organ-viewer">
@@ -128,6 +149,15 @@ export default function App() {
                 onQueueModeChange={setQueueMode}
               />
               {caseReport && <CaseReport report={caseReport} />}
+              <VoicePanel
+                key={`${rankingLoading ? "loading" : rankingContext?.snapshot_id ?? "local"}:${selectedId}:${queueMode}`}
+                context={rankingContext}
+                patient={selected}
+                patients={patients}
+                loading={rankingLoading}
+                onSelectPatient={setSelectedId}
+                onFocusOrgan={setFocusedOrgan}
+              />
               <Top25Table
                 patients={patients}
                 selectedId={selected.patient_id}
@@ -142,7 +172,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="empty">Loading the call list</div>
+          (rankingLoading || !rankingError) && <div className="empty">Loading the call list</div>
         )}
       </main>
 

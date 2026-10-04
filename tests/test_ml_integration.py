@@ -134,6 +134,27 @@ def test_api_uses_only_cache_and_exposes_all_three_risks(frozen_models, monkeypa
             assert "DEATH_EVENT" not in response.text and '"time"' not in response.text
             assert patient["organs"]["kidney_left"] == patient["organs"]["kidney_right"]
             assert len({item["id"] for item in patient["evidence"]}) == len(patient["evidence"])
+            # Voice must see the same published risks as the patient/API contract.
+            # Local evidence grants do not contact ElevenLabs or use live credits.
+            voice_body = {"snapshot_id": snapshot_id, "patient_id": "HF-0001"}
+            grant_response = client.post(
+                "/api/v1/voice/context", json=voice_body,
+                headers={"Origin": "http://localhost:5173"},
+            )
+            assert grant_response.status_code == 200
+            grant = grant_response.json()
+            voice_read = client.post(
+                "/api/v1/voice/tools/get_patient",
+                json={**voice_body, "cohort_id": grant["cohort_id"]},
+                headers={
+                    "Origin": "http://localhost:5173",
+                    "Authorization": f"Bearer {grant['tool_token']}",
+                },
+            )
+            assert voice_read.status_code == 200
+            assert voice_read.json()["risk_outputs_status"] == "ready"
+            assert voice_read.json()["patient"]["model_risks"] == patient["model_risks"]
+            assert "DEATH_EVENT" not in voice_read.text and '"time"' not in voice_read.text
             models = client.get("/api/v1/models").json()
             assert models["supervised_status"] == "ready"
             for task in RISK_TASKS:

@@ -73,7 +73,7 @@ class PatientDeleteRequest(Command):
 
 
 class ContextRequest(Request):
-    snapshot_id: str = Field(max_length=100)
+    snapshot_id: str = Field(min_length=1, max_length=100)
     patient_id: str | None = Field(default=None, pattern=r"^HF-\d{4}$")
 
 
@@ -87,9 +87,30 @@ class ComparisonRequest(Request):
 
 
 class ToolRequest(ContextRequest):
-    limit: int = Field(default=5, ge=1, le=5)
-    report_id: str = "case-benchmark-v1"
+    limit: int = Field(default=3, ge=1, le=5, strict=True)
+    report_id: str = Field(default="case-benchmark-v1", max_length=100)
     cohort_id: str = COHORT_ID
+
+
+class VoiceSessionRequest(ContextRequest):
+    # Text-only sessions use the same private agent without requesting a microphone.
+    text_only: bool = False
+
+
+class VoiceContextRead(BaseModel):
+    snapshot_id: str
+    patient_id: str | None
+    cohort_id: str
+    method_id: str
+    tool_token: str
+    expires_at: float
+    max_duration_seconds: int
+
+
+class VoiceSessionRead(VoiceContextRead):
+    signed_url: str
+    connection_type: Literal["websocket"] = "websocket"
+    text_only: bool
 
 
 class Facts(BaseModel):

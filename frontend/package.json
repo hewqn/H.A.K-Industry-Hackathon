@@ -8,9 +8,12 @@
     "build": "tsc -b && vite build",
     "check": "tsc -b --pretty false",
     "lint": "oxlint",
+    "test": "vitest run",
+    "generate:types": "npm exec --yes --package=typescript@5.9.3 --package=openapi-typescript@7.13.0 -- openapi-typescript ../contracts/openapi.json -o src/api/generated.ts",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@elevenlabs/react": "1.16.0",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "react": "^19.2.8",
@@ -18,13 +21,16 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@testing-library/react": "16.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "30.1.1",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vitest": "5.0.3"
   }
 }

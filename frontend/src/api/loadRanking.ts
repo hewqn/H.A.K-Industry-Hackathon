@@ -41,6 +41,9 @@ interface ApiRow {
 }
 
 interface Snapshot {
+  snapshot_id: string;
+  cohort_id: string;
+  workflow_revision: number;
   method_id: string;
   rows?: ApiRow[];
   queue?: ApiRow[];
@@ -67,13 +70,48 @@ export type RankingMethod =
   | "points_v1"
   | "points_heart3";
 
+// A browser-combined ranking has no corresponding backend snapshot. It must
+// never reuse the patient_risk snapshot's voice context or call ranks.
+export interface RankingContext {
+  snapshot_id: string;
+  cohort_id: string;
+  method_id: string;
+}
+
+export interface LoadedRanking {
+  patients: Patient[];
+  source: "api" | "local";
+  method: RankingMethod | "combined_w2" | "combined_w3" | "points_local" | "oldest_local";
+  context: RankingContext | null;
+}
+
 export type QueueMode = "model" | "oldest" | 2 | 3;
 
 const snapshotCache = new Map<string, Snapshot>();
-const snapshotInflight = new Map<string, Promise<Snapshot>>();
+let cacheScope = "";
+let cacheRevision: number | undefined;
+const rankingInflight = new Map<QueueMode, Promise<LoadedRanking>>();
+let rankingQueue: Promise<unknown> = Promise.resolve();
 let oldestRankCache: Record<string, number> | null = null;
 let organRiskCache: { heart: Record<string, number>; kidney: Record<string, number> } | null =
   null;
+
+function clearSnapshotCache() {
+  snapshotCache.clear();
+  oldestRankCache = null;
+  organRiskCache = null;
+  cacheScope = "";
+  cacheRevision = undefined;
+}
+
+function observeCohort(cohort: Cohort) {
+  // The default snapshot changes on API restart. Revisions detect outside
+  // workflow/patient edits; our own snapshot commands advance cacheRevision.
+  const scope = `${cohort.cohort_id}:${cohort.current_snapshot_id}`;
+  if (scope !== cacheScope || cohort.workflow_revision !== cacheRevision) clearSnapshotCache();
+  cacheScope = scope;
+  cacheRevision = cohort.workflow_revision;
+}
 
 function asFlag(value: boolean | number): boolean {
   return value === true || value === 1;
@@ -257,8 +295,8 @@ function fromSnapshot(
     kidney: {},
   },
   oldestRanks: Record<string, number> = {},
-): Patient[] {
-  return (snapshot.queue ?? snapshot.rows ?? []).map((row) =>
+): LoadedRanking {
+  const patients = (snapshot.queue ?? snapshot.rows ?? []).map((row) =>
     adaptRow(
       row,
       organRiskFor(row.patient_id, organRisks),
@@ -266,6 +304,14 @@ function fromSnapshot(
       snapshot.method_id,
     ),
   );
+  return {
+    patients, source: "api", method: snapshot.method_id as RankingMethod,
+    context: {
+      snapshot_id: snapshot.snapshot_id,
+      cohort_id: snapshot.cohort_id,
+      method_id: snapshot.method_id,
+    },
+  };
 }
 
 async function postSnapshot(methodId: string, cohort: Cohort): Promise<Snapshot> {
@@ -279,42 +325,46 @@ async function postSnapshot(methodId: string, cohort: Cohort): Promise<Snapshot>
 
   try {
     const mutation = await post<Mutation>("/ranking-snapshots", body(cohort.workflow_revision ?? 0));
+    cacheRevision = mutation.snapshot.workflow_revision;
     return mutation.snapshot;
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 409) throw error;
     const fresh = await api<Cohort>("/cohorts/current");
+    observeCohort(fresh);
     const mutation = await post<Mutation>(
       "/ranking-snapshots",
       body(fresh.workflow_revision ?? 0),
     );
+    cacheRevision = mutation.snapshot.workflow_revision;
     return mutation.snapshot;
   }
 }
 
-async function loadSnapshotUncached(methodId: string): Promise<Snapshot> {
+async function loadSnapshot(methodId: string, requireCurrentRevision = false): Promise<Snapshot> {
+  // Auxiliary score/age indexes may reuse snapshots after our own read-model
+  // commands. The displayed snapshot must match the latest workflow revision.
+  if (!requireCurrentRevision) {
+    const cached = snapshotCache.get(methodId);
+    if (cached) return cached;
+  }
   const cohort = await api<Cohort>("/cohorts/current");
+  observeCohort(cohort);
+  const cached = snapshotCache.get(methodId);
+  if (cached && cached.workflow_revision === cohort.workflow_revision) return cached;
   if (cohort.current_snapshot_id) {
     const existing = await api<Snapshot>(
       `/ranking-snapshots/${cohort.current_snapshot_id}`,
     );
-    snapshotCache.set(existing.method_id, existing);
-    if (existing.method_id === methodId) return existing;
+    // Do not replace a newer cached method with the boot-time default snapshot.
+    const previous = snapshotCache.get(existing.method_id);
+    if (!previous || existing.workflow_revision > previous.workflow_revision) {
+      snapshotCache.set(existing.method_id, existing);
+    }
+    if (existing.method_id === methodId && existing.workflow_revision === cohort.workflow_revision) return existing;
   }
   const created = await postSnapshot(methodId, cohort);
   snapshotCache.set(methodId, created);
   return created;
-}
-
-function loadSnapshot(methodId: string): Promise<Snapshot> {
-  const cached = snapshotCache.get(methodId);
-  if (cached) return Promise.resolve(cached);
-  const pending = snapshotInflight.get(methodId);
-  if (pending) return pending;
-  const request = loadSnapshotUncached(methodId).finally(() => {
-    snapshotInflight.delete(methodId);
-  });
-  snapshotInflight.set(methodId, request);
-  return request;
 }
 
 async function loadOrganRisks(
@@ -337,18 +387,19 @@ async function loadOldestRanks(): Promise<Record<string, number>> {
 
 async function rankFromApi(
   mode: QueueMode,
-): Promise<{ patients: Patient[]; method: RankingMethod }> {
+): Promise<LoadedRanking> {
   const health = await api<Health>("/health", { signal: AbortSignal.timeout(2000) });
   const mlReady = health.ml === "frozen_cache_ready";
+  observeCohort(await api<Cohort>("/cohorts/current"));
+  // These calls create revisioned snapshots when absent. Serialize them and
+  // obtain the displayed snapshot last, so comparisons cannot stale its grant.
+  const organRisks = await loadOrganRisks(mlReady);
+  const oldestRanks = await loadOldestRanks();
 
   if ((mode === 2 || mode === 3) && mlReady) {
     const weight = mode;
     const ceiling = maxPointsCeiling(weight);
-    const [mlSnapshot, organRisks, oldestRanks] = await Promise.all([
-      loadSnapshot("patient_risk"),
-      loadOrganRisks(true),
-      loadOldestRanks(),
-    ]);
+    const mlSnapshot = await loadSnapshot("patient_risk", true);
     const allRows = mlSnapshot.rows ?? mlSnapshot.queue ?? [];
 
     const combined = allRows.map((row) => {
@@ -375,51 +426,62 @@ async function rankFromApi(
           model_rank: item.mlRank,
         };
       }),
-      method: `combined_w${weight}` as unknown as RankingMethod,
+      source: "api",
+      method: weight === 2 ? "combined_w2" : "combined_w3",
+      context: null,
     };
   }
 
   const methodId = apiMethodForQueue(mode, mlReady);
-  const [snapshot, organRisks, oldestRanks] = await Promise.all([
-    loadSnapshot(methodId),
-    loadOrganRisks(mlReady),
-    loadOldestRanks(),
-  ]);
-  return {
-    patients: fromSnapshot(snapshot, organRisks, oldestRanks),
-    method: methodId,
-  };
+  const snapshot = await loadSnapshot(methodId, true);
+  return fromSnapshot(snapshot, organRisks, oldestRanks);
 }
 
-async function rankFromCsv(heartWeight: number): Promise<Patient[]> {
+async function rankFromCsv(mode: QueueMode): Promise<Patient[]> {
   const text = await fetch("/data/heart_failure_clinical_records.csv").then(
     (response) => {
       if (!response.ok) throw new Error("csv");
       return response.text();
     },
   );
-  return rankPatients(parseCSV(text), heartWeight, 25);
+  const patients = rankPatients(parseCSV(text), mode === 3 ? 3 : 2, 25);
+  if (mode === "oldest") {
+    // Keep the requested baseline in offline mode rather than displaying a
+    // points ordering under the Oldest label. Local tie rules remain labelled.
+    return patients.sort((a, b) => a.oldest_rank - b.oldest_rank).slice(0, 25).map((patient, index) => ({
+      ...patient, rank: index + 1, score: patient.facts.age, score_kind: "age",
+      priority_band: "higher", evidence: [],
+    }));
+  }
+  return patients.slice(0, 25);
 }
 
-export async function loadRanking(mode: QueueMode): Promise<{
-  patients: Patient[];
-  source: "api" | "local";
-  method: string;
-}> {
+async function loadRankingUncached(mode: QueueMode): Promise<LoadedRanking> {
   try {
-    const { patients, method } = await rankFromApi(mode);
-    if (patients.length === 0) throw new Error("empty");
-    return { patients, source: "api", method };
+    const result = await rankFromApi(mode);
+    if (result.patients.length === 0) throw new Error("empty");
+    return result;
   } catch {
-    snapshotCache.clear();
-    snapshotInflight.clear();
-    oldestRankCache = null;
-    organRiskCache = null;
-    const patients = await rankFromCsv(mode === 3 ? 3 : 2);
+    clearSnapshotCache();
+    const patients = await rankFromCsv(mode);
     return {
       patients,
       source: "local",
-      method: "points_local",
+      method: mode === "oldest" ? "oldest_local" : "points_local",
+      context: null,
     };
   }
+}
+
+export function loadRanking(mode: QueueMode): Promise<LoadedRanking> {
+  // StrictMode may request the same list twice. Deduplicate complete loads and
+  // serialize mode changes to avoid concurrent command-revision conflicts.
+  const pending = rankingInflight.get(mode);
+  if (pending) return pending;
+  const request = rankingQueue.then(() => loadRankingUncached(mode)).finally(() => {
+    rankingInflight.delete(mode);
+  });
+  rankingInflight.set(mode, request);
+  rankingQueue = request.catch(() => undefined);
+  return request;
 }

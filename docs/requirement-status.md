@@ -17,7 +17,7 @@ This records implementation starting points, **not** a P0 release certification.
 | CMP-01 | Labelled benchmark and frozen supervised reports/selections | Completed comparison UI and fresh validation |
 | CMP-02 | Heart-only evaluator with movement/decision | Snapshot previews and explicit operational apply UI |
 | SUM-01 | Factual template + digest boundary | Versioned cache, validated provider adapter if available, all-patient preload |
-| VOICE-01 | Planned session/tool routes + connection map | Private agent, tool transport/auth, SDK controls/transcript, real Q&A traces |
+| VOICE-01 | Private signed sessions, scoped read-only tools, SDK controls/transcript, frozen ML evidence and factual fallback | Actual browser microphone/playback/navigation QA; backend equivalent for browser-combined rankings |
 | OPS-01 | In-memory snapshot/evidence contracts | Durable immutable events, audit, concurrency, safe exact-snapshot CSV |
 | DEMO-01 | Local numerical/read/UI starter | Live scenario, cached text/audio, screenshots, failure drills, backup recording |
 | EVAL-01 | Domain/API tests, source/model limitations, architecture | Full PRD acceptance matrix, actual latency/FPS evidence, timed pitch |
@@ -26,6 +26,9 @@ This records implementation starting points, **not** a P0 release certification.
 Use PRD §20 for acceptance expectations and §26 for evidence. Update this table as
 owners supply verified implementations; do not conflate scaffold tests with live integrations.
 
-Local verification: 24 Python tests passed; Ruff, TypeScript and Vite build passed;
-all three frozen scores reproduced across 299 patients within 1e-12. No live
-Databricks, voice, final 3D, persistence, or provider-summary acceptance is claimed.
+Merge verification: 99 Python tests and 21 frontend tests passed; Ruff, TypeScript
+and Vite build passed. Coverage includes frozen ML read-cache/voice agreement,
+combined configuration, CORS, ranking revision/cache boundaries, merged dashboard
+wiring and the real SDK's idle/text lifecycle. No new live provider or cloud tests
+were run during merge resolution. Device audio, live Databricks, final 3D and
+provider-summary acceptance remain outstanding.

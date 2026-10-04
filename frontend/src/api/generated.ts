@@ -55,23 +55,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/ranking-snapshots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Snapshot */
-        post: operations["create_snapshot_api_v1_ranking_snapshots_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/ranking-snapshots/{snapshot_id}": {
         parameters: {
             query?: never;
@@ -89,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Patient */
+        post: operations["add_patient_api_v1_patients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{patient_id}": {
         parameters: {
             query?: never;
@@ -98,9 +98,11 @@ export interface paths {
         };
         /** Patient */
         get: operations["patient_api_v1_patients__patient_id__get"];
-        put?: never;
+        /** Update Patient */
+        put: operations["update_patient_api_v1_patients__patient_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Patient */
+        delete: operations["delete_patient_api_v1_patients__patient_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -151,6 +153,23 @@ export interface paths {
         put?: never;
         /** Comparison */
         post: operations["comparison_api_v1_comparisons_heart_weight_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ranking-snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Snapshot */
+        post: operations["create_snapshot_api_v1_ranking_snapshots_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -236,6 +255,23 @@ export interface paths {
         get: operations["export_api_v1_exports_queue_csv_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Voice Context */
+        post: operations["voice_context_api_v1_voice_context_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -522,6 +558,44 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** PatientCreateRequest */
+        PatientCreateRequest: {
+            /** Command Id */
+            command_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Age */
+            age: number;
+            /** Anaemia */
+            anaemia: boolean;
+            /** Creatinine Phosphokinase */
+            creatinine_phosphokinase: number;
+            /** Diabetes */
+            diabetes: boolean;
+            /** Ejection Fraction */
+            ejection_fraction: number;
+            /** High Blood Pressure */
+            high_blood_pressure: boolean;
+            /** Platelets */
+            platelets: number;
+            /** Serum Creatinine */
+            serum_creatinine: number;
+            /** Serum Sodium */
+            serum_sodium: number;
+            /** Sex */
+            sex: boolean;
+            /** Smoking */
+            smoking: boolean;
+        };
+        /** PatientDeleteRequest */
+        PatientDeleteRequest: {
+            /** Command Id */
+            command_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Reason */
+            reason: string;
+        };
         /** PatientRead */
         PatientRead: {
             /** Patient Id */
@@ -561,6 +635,35 @@ export interface components {
             evidence_digest: string;
             summary: components["schemas"]["Summary"];
             model_risks?: components["schemas"]["ModelRisks"] | null;
+        };
+        /** PatientUpdateRequest */
+        PatientUpdateRequest: {
+            /** Command Id */
+            command_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Age */
+            age?: number | null;
+            /** Anaemia */
+            anaemia?: boolean | null;
+            /** Creatinine Phosphokinase */
+            creatinine_phosphokinase?: number | null;
+            /** Diabetes */
+            diabetes?: boolean | null;
+            /** Ejection Fraction */
+            ejection_fraction?: number | null;
+            /** High Blood Pressure */
+            high_blood_pressure?: boolean | null;
+            /** Platelets */
+            platelets?: number | null;
+            /** Serum Creatinine */
+            serum_creatinine?: number | null;
+            /** Serum Sodium */
+            serum_sodium?: number | null;
+            /** Sex */
+            sex?: boolean | null;
+            /** Smoking */
+            smoking?: boolean | null;
         };
         /** QueueRow */
         QueueRow: {
@@ -789,7 +892,7 @@ export interface components {
             patient_id?: string | null;
             /**
              * Limit
-             * @default 5
+             * @default 3
              */
             limit: number;
             /**
@@ -811,6 +914,62 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VoiceContextRead */
+        VoiceContextRead: {
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Patient Id */
+            patient_id: string | null;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Method Id */
+            method_id: string;
+            /** Tool Token */
+            tool_token: string;
+            /** Expires At */
+            expires_at: number;
+            /** Max Duration Seconds */
+            max_duration_seconds: number;
+        };
+        /** VoiceSessionRead */
+        VoiceSessionRead: {
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Patient Id */
+            patient_id: string | null;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Method Id */
+            method_id: string;
+            /** Tool Token */
+            tool_token: string;
+            /** Expires At */
+            expires_at: number;
+            /** Max Duration Seconds */
+            max_duration_seconds: number;
+            /** Signed Url */
+            signed_url: string;
+            /**
+             * Connection Type
+             * @default websocket
+             * @constant
+             */
+            connection_type: "websocket";
+            /** Text Only */
+            text_only: boolean;
+        };
+        /** VoiceSessionRequest */
+        VoiceSessionRequest: {
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Patient Id */
+            patient_id?: string | null;
+            /**
+             * Text Only
+             * @default false
+             */
+            text_only: boolean;
         };
         /** Workflow */
         Workflow: {
@@ -905,39 +1064,6 @@ export interface operations {
             };
         };
     };
-    create_snapshot_api_v1_ranking_snapshots_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SnapshotRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MutationResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     snapshot_api_v1_ranking_snapshots__snapshot_id__get: {
         parameters: {
             query?: never;
@@ -956,6 +1082,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_patient_api_v1_patients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -989,6 +1148,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PatientRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_patient_api_v1_patients__patient_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_patient_api_v1_patients__patient_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -1090,6 +1319,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_snapshot_api_v1_ranking_snapshots_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MutationResult"];
                 };
             };
             /** @description Validation Error */
@@ -1206,7 +1468,10 @@ export interface operations {
     };
     audit_events_api_v1_audit_events_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1220,6 +1485,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1255,7 +1529,7 @@ export interface operations {
             };
         };
     };
-    voice_session_api_v1_voice_session_post: {
+    voice_context_api_v1_voice_context_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1274,7 +1548,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VoiceContextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_session_api_v1_voice_session_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSessionRead"];
                 };
             };
             /** @description Validation Error */
