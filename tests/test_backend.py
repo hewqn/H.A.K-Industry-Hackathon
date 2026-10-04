@@ -385,10 +385,23 @@ class TestVoiceStill503:
 
 
 class TestExistingContract:
-    def test_queue_patient_contract(self, client, snapshot_id):
-        snap = client.get(f"/api/v1/ranking-snapshots/{snapshot_id}").json()
+    def test_queue_patient_contract(self, client):
+        # Create an explicit points_v1 snapshot so the test doesn't depend on
+        # whatever _default_method() returns (patient_risk when the ML bundle
+        # is present locally, points_v1 in CI where it isn't).
+        cohort = client.get("/api/v1/cohorts/current").json()
+        resp = client.post("/api/v1/ranking-snapshots", json={
+            "command_id": "test-contract",
+            "expected_revision": cohort["workflow_revision"],
+            "cohort_id": cohort["cohort_id"],
+            "method_id": "points_v1",
+            "capacity": 25,
+            "mode": "operational",
+        })
+        snap = resp.json()["snapshot"]
+        sid = snap["snapshot_id"]
         assert len(snap["queue"]) == 25
-        patient = client.get(f"/api/v1/patients/HF-0001?snapshot_id={snapshot_id}").json()
+        patient = client.get(f"/api/v1/patients/HF-0001?snapshot_id={sid}").json()
         assert patient["call_rank"] == 14
         assert patient["score"]["value"] == 6
         assert patient["summary"]["status"] == "template"
